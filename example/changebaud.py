@@ -4,12 +4,13 @@
 
 import sys, time
 from pyDXL import DXLProtocolV2
+from dxmodel import *
 
 baudlist = { 9600 : 0, 57600 : 1, 115200 : 2, 1000000 : 3, 2000000 : 4, 3000000 : 5, 4000000 : 6 }
 
 if len(sys.argv) == 4:
   arg = sys.argv[1:]
-  dev = '\\\\.\\COM10'
+  dev = '/dev/ttyAMA0'
 elif len(sys.argv) == 5:
   arg = sys.argv[2:]
   dev = sys.argv[1]
@@ -30,9 +31,10 @@ if dev != '':
   else:
     if not dx.Ping(id):
       dx.baudrate = prevbaud
+      baddr = get_address_by_modelno(dx.Read16(id, 0)).baudrate
       if dx.Reboot(id):
-        time.sleep(0.5)
-        if dx.Write8(id, 8, newind):
+        time.sleep(1.5)
+        if dx.Write8(id, baddr, newind):
           print('OK')
         else:
           print('NG')
