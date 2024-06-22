@@ -157,7 +157,7 @@ class DXLProtocolV1:
             break
       return r
 
-  def RxPacket(self, echo = False) -> (bytes, bool):
+  def RxPacket(self, echo = False, timeout = 0.0) -> (bytes, bool):
     """
     Receiving packets
 
@@ -168,6 +168,10 @@ class DXLProtocolV1:
     bool
       Success or failure
     """
+    prev_timeout = self.__serial.timeout
+    if timeout > 0:
+      self.__serial.timeout = timeout
+    self.__serial.flush()
     statp = self.__rx(5)
     if statp:
       if len(statp) == 5:
@@ -178,8 +182,10 @@ class DXLProtocolV1:
           if len(statp) == l + 5:
             if statp[-1:][0] == ((~sum(statp[2:-1])) & 0xff):
               if echo: print('RX:', statp.hex(':'))
+              self.__serial.timeout = prev_timeout
               return bytes(statp), (statp[4] & 0x40) == 0
     if echo: print('RX:', statp.hex(';'))
+    self.__serial.timeout = prev_timeout
     return None, False
 
   def Write(self, id : int, addr : int, data : bytes, echo = False) -> bool:
@@ -470,7 +476,7 @@ class DXLProtocolV2:
             break
       return r
 
-  def RxPacket(self, echo = False) -> (bytes, bool):
+  def RxPacket(self, echo = False, timeout = 0.0) -> (bytes, bool):
     """
     Receiving packets
 
@@ -481,6 +487,9 @@ class DXLProtocolV2:
     bool
       Success or failure
     """
+    prev_timeout = self.__serial.timeout
+    if timeout > 0:
+      self.__serial.timeout = timeout
     self.__serial.flush()
     statp = self.__rx(9)
     if statp:
@@ -493,8 +502,10 @@ class DXLProtocolV2:
             if unpack('<H', statp[-2:])[0] == self.__crc16(statp[:-2]):
               statp = statp[0:9] + statp[9:].replace(b'\xff\xff\xfd\xfd',b'\xff\xff\xfd')
               if echo: print('RX:', statp.hex(':'))
+              self.__serial.timeout = prev_timeout
               return bytes(statp), (statp[8] & 0x7f) == 0
     if echo: print('RX:', statp.hex(';'))
+    self.__serial.timeout = prev_timeout
     return None, False
 
   def Write(self, id : int, addr : int, data : bytes, echo = False) -> bool:
