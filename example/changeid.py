@@ -27,7 +27,7 @@ if dev != '':
     if previd >= 0 and previd <= 252 and newid >= 0 and newid <= 252:
       if not dx.Ping(newid):
         if dx.Reboot(previd):
-          time.sleep(0.5)
+          time.sleep(1.5)
           if dx.Write8(previd, 7, newid):
             print('OK')
           else:
