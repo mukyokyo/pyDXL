@@ -10,7 +10,7 @@ baudlist = { 9600 : 0, 57600 : 1, 115200 : 2, 1000000 : 3, 2000000 : 4, 3000000 
 
 if len(sys.argv) == 4:
   arg = sys.argv[1:]
-  dev = '/dev/ttyAMA0'
+  dev = '\\\\.\\COM10'
 elif len(sys.argv) == 5:
   arg = sys.argv[2:]
   dev = sys.argv[1]
