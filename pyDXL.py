@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileCopyrightText: (C) 2024-2025 mukyokyo
 
-import serial, socket, select, threading, array
+import serial, socket, select, threading, array, time
 from typing import Union
 from collections import namedtuple
 from struct import pack, unpack, iter_unpack
