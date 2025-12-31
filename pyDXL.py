@@ -197,6 +197,7 @@ class DXLProtocolV1:
 
   def __rx(self, length) -> bytes:
     if self.__sock:
+      tout = time.time() + self.__sock.gettimeout()
       try:
         s = self.__sock.recv(length)
       except TimeoutError:
@@ -209,12 +210,13 @@ class DXLProtocolV1:
           r = s
           length -= rxl
           if length > 0:
-            try:
-              s = self.__sock.recv(length)
-            except TimeoutError:
-              s = b''
-            r += s
-            length -= len(s)
+            while length > 0 or time.time() < tout:
+              try:
+                s = self.__sock.recv(length)
+              except TimeoutError:
+                s = b''
+              r += s
+              length -= len(s)
           return r
     else:
       s = self.__serial.read(length)
@@ -603,6 +605,7 @@ class DXLProtocolV2:
 
   def __rx(self, length) -> bytes:
     if self.__sock:
+      tout = time.time() + self.__sock.gettimeout()
       try:
         s = self.__sock.recv(length)
       except TimeoutError:
@@ -615,12 +618,13 @@ class DXLProtocolV2:
           r = s
           length -= rxl
           if length > 0:
-            try:
-              s = self.__sock.recv(length)
-            except TimeoutError:
-              s = b''
-            r += s
-            length -= len(s)
+            while length > 0 or time.time() < tout:
+              try:
+                s = self.__sock.recv(length)
+              except TimeoutError:
+                s = b''
+              r += s
+              length -= len(s)
           return r
     else:
       s = self.__serial.read(length)
@@ -1212,9 +1216,8 @@ if __name__ == "__main__":
 
   print(sys.version)
 
-  """
   try:
-    dx = DXLProtocolV2('\\\\.\\COM12', 57600, timeout=0.2)
+    dx = DXLProtocolV2('\\\\.\\COM12', 57600, timeout=0.05)
   except:
     pass
   else:
@@ -1225,14 +1228,15 @@ if __name__ == "__main__":
     th1.join()
     th2.join()
     del th1, th2, dx
-  """
 
+  """
   try:
     serv_address = ('10.0.0.1', 23)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) 
     sock.connect(serv_address)
 
-    dx = DXLProtocolV2(sock, 57600, timeout=0.3)
+    dx = DXLProtocolV2(sock, 57600, timeout=0.1)
     time.sleep(1)
   except:
     pass
@@ -1245,15 +1249,18 @@ if __name__ == "__main__":
     th2.join()
     del th1, th2, dx
     sock.close()
+  """
 
   """
   try:
     serv_address = ('10.0.0.1', 23)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) 
     sock.connect(serv_address)
 
-    dx = DXLProtocolV1(sock, 57600, timeout=0.3)
+    dx = DXLProtocolV1(sock, 57600, timeout=0.05)
     time.sleep(1)
+
   except:
     pass
   else:
