@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileCopyrightText: (C) 2024-2025 mukyokyo
 
-import serial, socket, select, threading, array, time
+import serial, socket, errno, select, threading, array, time
 from typing import Union
 from collections import namedtuple
 from struct import pack, unpack, iter_unpack
@@ -121,10 +121,7 @@ class DXLProtocolV1:
 
   @property
   def timeout(self):
-    if self.sock:
-      return self.__sock.gettimeout()
-    else:
-      return self.__serial.timeout
+    return self.__timeout
 
   @timeout.setter
   def timeout(self, timeout):
@@ -146,18 +143,20 @@ class DXLProtocolV1:
     return self.__Error
 
   def __clear_sock_rx_buf(self):
-    self.__sock.setblocking(False)
-    while True:
-      r, _, _ = select.select([self.__sock], [], [], 0)
-      if not r:
-        break
-      try:
-        if not self.__sock.recv(65536):
+    try:
+      self.__sock.setblocking(False)
+      while True:
+        data = self.__sock.recv(65536)
+        if not data:
           break
-      except socket.error:
-        break
-    self.__sock.setblocking(True)
-    self.__sock.settimeout(self.__timeout)
+    except socket.error as e:
+      if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
+        pass # buffer is empty
+      else:
+        raise # Other errors can be reproduced
+    finally:
+      self.__sock.setblocking(True)
+      self.__sock.settimeout(self.__timeout)
 
   def TxPacket(self, id: int, inst: int, param: bytes, echo=False) -> (bytes, bool):
     """
@@ -210,7 +209,7 @@ class DXLProtocolV1:
           r = s
           length -= rxl
           if length > 0:
-            while length > 0 or time.time() < tout:
+            while length > 0 and time.time() < tout:
               try:
                 s = self.__sock.recv(length)
               except TimeoutError:
@@ -523,10 +522,7 @@ class DXLProtocolV2:
 
   @property
   def timeout(self):
-    if self.sock:
-      return self.__sock.gettimeout()
-    else:
-      return self.__serial.timeout
+    return self.__timeout
 
   @timeout.setter
   def timeout(self, timeout):
@@ -554,18 +550,20 @@ class DXLProtocolV2:
     return crc & 0xffff
 
   def __clear_sock_rx_buf(self):
-    self.__sock.setblocking(False)
-    while True:
-      r, _, _ = select.select([self.__sock], [], [], 0)
-      if not r:
-        break
-      try:
-        if not self.__sock.recv(65536):
+    try:
+      self.__sock.setblocking(False)
+      while True:
+        data = self.__sock.recv(65536)
+        if not data:
           break
-      except socket.error:
-        break
-    self.__sock.setblocking(True)
-    self.__sock.settimeout(self.__timeout)
+    except socket.error as e:
+      if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
+        pass # buffer is empty
+      else:
+        raise # Other errors can be reproduced
+    finally:
+      self.__sock.setblocking(True)
+      self.__sock.settimeout(self.__timeout)
 
   def TxPacket(self, id: int, inst: int, param: bytes, echo=False) -> (bytes, bool):
     """
@@ -618,7 +616,7 @@ class DXLProtocolV2:
           r = s
           length -= rxl
           if length > 0:
-            while length > 0 or time.time() < tout:
+            while length > 0 and time.time() < tout:
               try:
                 s = self.__sock.recv(length)
               except TimeoutError:
