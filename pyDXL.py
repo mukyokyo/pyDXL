@@ -98,7 +98,10 @@ class DXLProtocolV1:
     pconf_packet[4] = (baud >> 8) & 0xff
     pconf_packet[5] = (baud) & 0xff
     pconf_packet[7] = sum(pconf_packet[3:7]) & 0xff
-    self.__sock.sendall(pconf_packet)
+    try:
+      self.__sock.sendall(pconf_packet)
+    except socket.timeout:
+      return None, False
 
   @property
   def lock(self):
@@ -187,7 +190,10 @@ class DXLProtocolV1:
         print('TX:', instp.hex(':'))
       if self.__sock:
         self.__clear_sock_rx_buf()
-        self.__sock.sendall(instp)
+        try:
+          self.__sock.sendall(instp)
+        except socket.timeout:
+          return None, False
       else:
         self.__serial.reset_input_buffer()
         self.__serial.write(instp)
@@ -499,7 +505,10 @@ class DXLProtocolV2:
     pconf_packet[4] = (baud >> 8) & 0xff
     pconf_packet[5] = (baud) & 0xff
     pconf_packet[7] = sum(pconf_packet[3:7]) & 0xff
-    self.__sock.sendall(pconf_packet)
+    try:
+      self.__sock.sendall(pconf_packet)
+    except socket.timeout:
+      return None, False
 
   @property
   def lock(self):
@@ -594,7 +603,10 @@ class DXLProtocolV2:
         print('TX:', instp.hex(':'))
       if self.__sock:
         self.__clear_sock_rx_buf()
-        self.__sock.sendall(instp)
+        try:
+          self.__sock.sendall(instp)
+        except socket.timeout:
+          return None, False
       else:
         self.__serial.reset_input_buffer()
         self.__serial.write(instp)
@@ -777,6 +789,7 @@ class DXLProtocolV2:
 
   def SyncWrite(self, addr: int, length: int, id_datas: (TSyncW), echo=False) -> bool:
     """
+    return None, False
     Sync Write instruction
 
     parameters
