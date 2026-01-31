@@ -11,4 +11,4 @@ A class that communicates with ROBOTIS DYNAMIXEL using only generic libraries.
 
 ## Licence
 
-[MIT](https://github.com/kotabrog/ft_mini_ls/blob/main/LICENSE)
+[MIT](https://github.com/mukyokyo/pyDXL/blob/main/LICENSE)
