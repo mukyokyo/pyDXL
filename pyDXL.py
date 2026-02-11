@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #
 # pyDXL.py
 # Class that handles the DYNAMIXEL communication protocol.
@@ -129,7 +129,7 @@ class DXLProtocolV1:
   @timeout.setter
   def timeout(self, timeout):
     self.__timeout = timeout
-    if self.sock:
+    if self.__sock:
       self.__sock.settimeout(self.__timeout)
     else:
       self.__serial.timeout = timeout
@@ -536,7 +536,7 @@ class DXLProtocolV2:
   @timeout.setter
   def timeout(self, timeout):
     self.__timeout = timeout
-    if self.sock:
+    if self.__sock:
       self.__sock.settimeout(self.__timeout)
     else:
       self.__serial.timeout = timeout
