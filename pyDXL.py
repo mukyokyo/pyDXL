@@ -6,9 +6,9 @@
 # Additionally supports serial to ethernet bridge I/F.
 #
 # SPDX-License-Identifier: MIT
-# SPDX-FileCopyrightText: (C) 2024-2025 mukyokyo
+# SPDX-FileCopyrightText: (C) 2024-2026 mukyokyo
 
-import serial, socket, errno, select, threading, array, time
+import serial, socket, errno, threading, array, time
 from typing import Union
 from collections import namedtuple
 from struct import pack, unpack, iter_unpack
@@ -56,7 +56,7 @@ class DXLProtocolV1:
 
   TSyncW = namedtuple("TSyncW", ("id", ("data")))
 
-  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.05, lock=None):
+  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.05, lock=None, protocoltype=0):
     """
     Initalize
 
@@ -68,6 +68,10 @@ class DXLProtocolV1:
       Serial baudrate[bps]
     timeout : float
       Read timeout[s]
+    lock: threading.Lock
+      Mutex
+    protocoltype: int
+      0:No 1:PUSR 2:SERIAL_LSRMST_INSERT
     """
     if isinstance(port, serial.Serial):
       self.__serial = port
@@ -80,6 +84,7 @@ class DXLProtocolV1:
       self.__baudrate = baudrate
       self.__timeout = timeout
       self.__sock.settimeout(timeout)
+      self.__protocoltype = protocoltype
       self.__send_uart_conf(baudrate)
     else:
       self.__serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
@@ -93,15 +98,23 @@ class DXLProtocolV1:
     self.__Error = 0
 
   def __send_uart_conf(self, baud):
-    pconf_packet = bytearray([0x55, 0xaa, 0x55, 0, 0, 0, 0x83, 0])
-    pconf_packet[3] = (baud >> 16) & 0xff
-    pconf_packet[4] = (baud >> 8) & 0xff
-    pconf_packet[5] = (baud) & 0xff
-    pconf_packet[7] = sum(pconf_packet[3:7]) & 0xff
-    try:
-      self.__sock.sendall(pconf_packet)
-    except socket.timeout:
-      return None, False
+    if self.__protocoltype == 1:
+      pconf_packet = bytearray([0x55, 0xaa, 0x55, 0, 0, 0, 0x83, 0])
+      pconf_packet[3] = (baud >> 16) & 0xff
+      pconf_packet[4] = (baud >> 8) & 0xff
+      pconf_packet[5] = (baud) & 0xff
+      pconf_packet[7] = sum(pconf_packet[3:7]) & 0xff
+      try:
+        self.__sock.sendall(pconf_packet)
+      except socket.timeout:
+        return False
+    elif self.__protocoltype == 2:
+      pconf_packet = bytearray([ord('a'), 16]) + L2Bs(baud) + bytearray([ord('a'), 17, 8, 0, 0])
+      try:
+        self.__sock.sendall(pconf_packet)
+      except socket.timeout:
+        return False
+    return True
 
   @property
   def lock(self):
@@ -154,14 +167,14 @@ class DXLProtocolV1:
           break
     except socket.error as e:
       if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
-        pass # buffer is empty
+        pass  # buffer is empty
       else:
-        raise # Other errors can be reproduced
+        raise  # Other errors can be reproduced
     finally:
       self.__sock.setblocking(True)
       self.__sock.settimeout(self.__timeout)
 
-  def TxPacket(self, id: int, inst: int, param: bytes, echo=False) -> (bytes, bool):
+  def TxPacket(self, id: int, inst: int, param: bytes, echo=False, wait=-1.0) -> (bytes, bool):
     """
     Sending packets
 
@@ -191,12 +204,23 @@ class DXLProtocolV1:
       if self.__sock:
         self.__clear_sock_rx_buf()
         try:
-          self.__sock.sendall(instp)
+          if self.__protocoltype == 2:
+            self.__sock.sendall(instp.replace(b'a', b'a\0'))
+          else:
+            self.__sock.sendall(instp)
         except socket.timeout:
           return None, False
       else:
         self.__serial.reset_input_buffer()
         self.__serial.write(instp)
+      if wait >= 0:
+        if not self.__sock:
+          self.__serial.flush()
+        t = 1.0 / self.__baudrate * 10 * len(instp)
+        if wait > t:
+          time.sleep(wait - t)
+        else:
+          time.sleep(t)
       return bytes(instp), True
     return None, False
 
@@ -371,7 +395,7 @@ class DXLProtocolV1:
       return n if length > 1 else n[0]
     return None
 
-  def SyncWrite(self, addr: int, length: int, id_datas: (TSyncW), echo=False) -> bool:
+  def SyncWrite(self, addr: int, length: int, id_datas: (TSyncW), echo=False, wait=-1.0) -> bool:
     """
     Sync Write instruction
 
@@ -397,7 +421,7 @@ class DXLProtocolV1:
           if len(d.data) != length or d.id < 0 or d.id > 253:
             del param
             return False
-        return self.TxPacket(self.BROADCASTING_ID, self.INST_SYNC_WRITE, param, echo)[1]
+        return self.TxPacket(self.BROADCASTING_ID, self.INST_SYNC_WRITE, param, echo, wait)[1]
       return False
 
   def Ping(self, id: int, echo=False) -> bool:
@@ -455,7 +479,7 @@ class DXLProtocolV2:
 
   __crc16_lutable = array.array('H')
 
-  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.05, lock=None):
+  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.05, lock=None, protocoltype=0):
     """
     Initalize
 
@@ -467,6 +491,10 @@ class DXLProtocolV2:
       Serial baudrate[bps]
     timeout : float
       Read timeout[s]
+    lock: threading.Lock
+      Mutex
+    protocoltype: int
+      0:No 1:PUSR 2:SERIAL_LSRMST_INSERT
     """
     if isinstance(port, serial.Serial):
       self.__serial = port
@@ -479,6 +507,7 @@ class DXLProtocolV2:
       self.__baudrate = baudrate
       self.__timeout = timeout
       self.__sock.settimeout(timeout)
+      self.__protocoltype = protocoltype
       self.__send_uart_conf(baudrate)
     else:
       self.__serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
@@ -499,16 +528,28 @@ class DXLProtocolV2:
         nData <<= 1
       self.__crc16_lutable.append(nAccum)
 
-  def __send_uart_conf(self, baud):
-    pconf_packet = bytearray([0x55, 0xaa, 0x55, 0, 0, 0, 0x83, 0])
-    pconf_packet[3] = (baud >> 16) & 0xff
-    pconf_packet[4] = (baud >> 8) & 0xff
-    pconf_packet[5] = (baud) & 0xff
-    pconf_packet[7] = sum(pconf_packet[3:7]) & 0xff
-    try:
-      self.__sock.sendall(pconf_packet)
-    except socket.timeout:
-      return None, False
+  def __send_uart_conf(self, baud, protocol=1):
+    if self.__protocoltype == 1:
+      pconf_packet = bytearray([0x55, 0xaa, 0x55, 0, 0, 0, 0x83, 0])
+      pconf_packet[3] = (baud >> 16) & 0xff
+      pconf_packet[4] = (baud >> 8) & 0xff
+      pconf_packet[5] = (baud) & 0xff
+      pconf_packet[7] = sum(pconf_packet[3:7]) & 0xff
+      try:
+        self.__sock.sendall(pconf_packet)
+      except socket.timeout:
+        return False
+    elif self.__protocoltype == 2:
+      pconf_packet = bytearray([ord('a'), 16]) + L2Bs(baud) + bytearray([ord('a'), 17, 8, 0, 0])
+      try:
+        self.__sock.sendall(pconf_packet)
+      except socket.timeout:
+        return False
+    return True
+
+  @property
+  def ser(self):
+    return self.__serial
 
   @property
   def lock(self):
@@ -567,14 +608,14 @@ class DXLProtocolV2:
           break
     except socket.error as e:
       if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
-        pass # buffer is empty
+        pass  # buffer is empty
       else:
-        raise # Other errors can be reproduced
+        raise  # Other errors can be reproduced
     finally:
       self.__sock.setblocking(True)
       self.__sock.settimeout(self.__timeout)
 
-  def TxPacket(self, id: int, inst: int, param: bytes, echo=False) -> (bytes, bool):
+  def TxPacket(self, id: int, inst: int, param: bytes, echo=False, wait=-1.0) -> (bytes, bool):
     """
     Sending packets
 
@@ -604,12 +645,23 @@ class DXLProtocolV2:
       if self.__sock:
         self.__clear_sock_rx_buf()
         try:
-          self.__sock.sendall(instp)
+          if self.__protocoltype == 2:
+            self.__sock.sendall(instp.replace(b'a', b'a\0'))
+          else:
+            self.__sock.sendall(instp)
         except socket.timeout:
           return None, False
       else:
         self.__serial.reset_input_buffer()
         self.__serial.write(instp)
+      if wait >= 0:
+        if not self.__sock:
+          self.__serial.flush()
+        t = 1.0 / self.__baudrate * 10 * len(instp)
+        if wait > t:
+          time.sleep(wait - t)
+        else:
+          time.sleep(t)
       return bytes(instp), True
     return None, False
 
@@ -787,7 +839,7 @@ class DXLProtocolV2:
       return n if length > 1 else n[0]
     return None
 
-  def SyncWrite(self, addr: int, length: int, id_datas: (TSyncW), echo=False) -> bool:
+  def SyncWrite(self, addr: int, length: int, id_datas: (TSyncW), echo=False, wait=-1.0) -> bool:
     """
     return None, False
     Sync Write instruction
@@ -814,7 +866,7 @@ class DXLProtocolV2:
           if len(d.data) != length or d.id < 0 or d.id > 252:
             del param
             return False
-        return self.TxPacket(self.BROADCASTING_ID, self.INST_SYNC_WRITE, param, echo)[1]
+        return self.TxPacket(self.BROADCASTING_ID, self.INST_SYNC_WRITE, param, echo, wait)[1]
       return False
 
   def SyncRead(self, addr: int, length: int, ids: (int), echo=False) -> tuple:
@@ -850,7 +902,7 @@ class DXLProtocolV2:
               result += (id, bytes([])),
       return result
 
-  def BulkWrite(self, data: (TBulkW), echo=False) -> bool:
+  def BulkWrite(self, data: (TBulkW), echo=False, wait=-1.0) -> bool:
     """
     Bulk Write instruction
 
@@ -874,7 +926,7 @@ class DXLProtocolV2:
         else:
           del param
           return False
-      return self.TxPacket(self.BROADCASTING_ID, self.INST_BULK_WRITE, param, echo)[1]
+      return self.TxPacket(self.BROADCASTING_ID, self.INST_BULK_WRITE, param, echo, wait)[1]
 
   def BulkRead(self, data: (TBulkR), echo=False) -> tuple:
     """
@@ -918,6 +970,18 @@ class DXLProtocolV2:
           return id == rxd[4] and rxd[5] == 7 and rxd[6] == 0
       return False
 
+  def Ping2(self, timeout=1.0, echo=False) -> list:
+    with self.__lock:
+      result = []
+      t = time.time()
+      if self.TxPacket(0xfe, self.INST_PING, bytes(), echo)[1]:
+        while time.time() < t + timeout:
+          rxd, r = self.RxPacket(echo)
+          if r:
+            if rxd[5] == 7 and rxd[6] == 0:
+              result += (rxd[4], rxd[8]),
+      return result
+
   def FactoryReset(self, id: int, p1: int, echo=False) -> bool:
     with self.__lock:
       if self.TxPacket(id, self.INST_FACTORY_RESET, bytes((p1,)), echo)[1]:
@@ -950,7 +1014,6 @@ if __name__ == "__main__":
   from contextlib import contextmanager
   from threading import Thread
   import sys
-  import time
   import traceback
 
   ID = 1
@@ -1025,11 +1088,9 @@ if __name__ == "__main__":
       """ sync write inst. """
       for i in range(30):
         with stopwatch():
-          dx.SyncWrite(65, 1, (dx.TSyncW(ID, B2Bs(1)), dx.TSyncW(ID + 1, B2Bs(1)), dx.TSyncW(ID + 2, B2Bs(1)), dx.TSyncW(ID + 3, B2Bs(1)), dx.TSyncW(ID + 4, B2Bs(1))), echo=ec)
-        time.sleep(0.05)
+          dx.SyncWrite(65, 1, (dx.TSyncW(ID, B2Bs(1)), dx.TSyncW(ID + 1, B2Bs(1)), dx.TSyncW(ID + 2, B2Bs(1)), dx.TSyncW(ID + 3, B2Bs(1)), dx.TSyncW(ID + 4, B2Bs(1))), echo=ec, wait=0.05)
         with stopwatch():
-          dx.SyncWrite(65, 1, (dx.TSyncW(ID, B2Bs(0)), dx.TSyncW(ID + 1, B2Bs(0)), dx.TSyncW(ID + 2, B2Bs(0)), dx.TSyncW(ID + 3, B2Bs(0)), dx.TSyncW(ID + 4, B2Bs(0))), echo=ec)
-        time.sleep(0.05)
+          dx.SyncWrite(65, 1, (dx.TSyncW(ID, B2Bs(0)), dx.TSyncW(ID + 1, B2Bs(0)), dx.TSyncW(ID + 2, B2Bs(0)), dx.TSyncW(ID + 3, B2Bs(0)), dx.TSyncW(ID + 4, B2Bs(0))), echo=ec, wait=0.05)
 
       """ set goal position """
       # torque off
@@ -1096,19 +1157,15 @@ if __name__ == "__main__":
       """ bulk write inst. """
       print('BulkWrite=')
       with stopwatch():
-        print(' 1', dx.BulkWrite((dx.TBulkW(ID, 104, L2Bs((0, 0, 0, 1024))), dx.TBulkW(ID + 1, 65, B2Bs(0)), dx.TBulkW(ID + 2, 65, B2Bs(0)), dx.TBulkW(ID + 3, 65, B2Bs(0))), echo=ec))
-      time.sleep(0.5)
+        print(' 1', dx.BulkWrite((dx.TBulkW(ID, 104, L2Bs((0, 0, 0, 1024))), dx.TBulkW(ID + 1, 65, B2Bs(0)), dx.TBulkW(ID + 2, 65, B2Bs(0)), dx.TBulkW(ID + 3, 65, B2Bs(0))), echo=ec, wait=0.5))
       with stopwatch():
-        print(' 2', dx.BulkWrite((dx.TBulkW(ID, 104, L2Bs(0) + L2Bs(0) + L2Bs(0) + L2Bs(2048)), dx.TBulkW(ID + 1, 65, B2Bs(1)), dx.TBulkW(ID + 2, 65, B2Bs(1)), dx.TBulkW(ID + 3, 65, B2Bs(1))), echo=ec))
-      time.sleep(0.5)
+        print(' 2', dx.BulkWrite((dx.TBulkW(ID, 104, L2Bs(0) + L2Bs(0) + L2Bs(0) + L2Bs(2048)), dx.TBulkW(ID + 1, 65, B2Bs(1)), dx.TBulkW(ID + 2, 65, B2Bs(1)), dx.TBulkW(ID + 3, 65, B2Bs(1))), echo=ec, wait=0.5))
       with stopwatch():
-        print(' 3', dx.BulkWrite((dx.TBulkW(ID, 104, L2Bs(0) + L2Bs(0) + L2Bs(0) + L2Bs(1024)), dx.TBulkW(ID + 1, 65, B2Bs(0)), dx.TBulkW(ID + 2, 65, B2Bs(0))), echo=ec))
-      time.sleep(0.5)
+        print(' 3', dx.BulkWrite((dx.TBulkW(ID, 104, L2Bs(0) + L2Bs(0) + L2Bs(0) + L2Bs(1024)), dx.TBulkW(ID + 1, 65, B2Bs(0)), dx.TBulkW(ID + 2, 65, B2Bs(0))), echo=ec, wait=0.5))
       with stopwatch():
-        print(' 4', dx.BulkWrite((dx.TBulkW(ID, 116, L2Bs(2048)), dx.TBulkW(ID + 1, 65, B2Bs(1)), dx.TBulkW(ID + 2, 65, B2Bs(1))), echo=ec))
-      time.sleep(0.5)
+        print(' 4', dx.BulkWrite((dx.TBulkW(ID, 116, L2Bs(2048)), dx.TBulkW(ID + 1, 65, B2Bs(1)), dx.TBulkW(ID + 2, 65, B2Bs(1))), echo=ec, wait=0.5))
       with stopwatch():
-        print(' 5', dx.BulkWrite((dx.TBulkW(ID, 65, bytes(0)), dx.TBulkW(ID + 1, 65, bytes(0)), dx.TBulkW(ID + 2, 65, bytes(0))), echo=ec))
+        print(' 5', dx.BulkWrite((dx.TBulkW(ID, 65, bytes(0)), dx.TBulkW(ID + 1, 65, bytes(0)), dx.TBulkW(ID + 2, 65, bytes(0))), echo=ec, wait=0.5))
 
       dx.Write8(ID, 64, 0, echo=ec)
 
@@ -1126,8 +1183,7 @@ if __name__ == "__main__":
       try:
         led = dx.Read8(ID, 65, echo=ec)
         if led is not None:
-          led ^= 1
-          dx.Write8(ID, 65, led, echo=ec)
+          dx.Write8(ID, 65, led ^ 1, echo=ec)
         time.sleep(0.05)
       except:
         print('--- Caught Exception ---')
@@ -1181,11 +1237,9 @@ if __name__ == "__main__":
       """ sync write inst. """
       for i in range(30):
         with stopwatch():
-          dx.SyncWrite(25, 1, (dx.TSyncW(ID, B2Bs(1)), dx.TSyncW(ID + 1, B2Bs(1)), dx.TSyncW(ID + 2, B2Bs(1))), echo=ec)
-        time.sleep(0.05)
+          dx.SyncWrite(25, 1, (dx.TSyncW(ID, B2Bs(1)), dx.TSyncW(ID + 1, B2Bs(1)), dx.TSyncW(ID + 2, B2Bs(1))), echo=ec, wait=0.5)
         with stopwatch():
-          dx.SyncWrite(25, 1, (dx.TSyncW(ID, B2Bs(0)), dx.TSyncW(ID + 1, B2Bs(0)), dx.TSyncW(ID + 2, B2Bs(0))), echo=ec)
-        time.sleep(0.05)
+          dx.SyncWrite(25, 1, (dx.TSyncW(ID, B2Bs(0)), dx.TSyncW(ID + 1, B2Bs(0)), dx.TSyncW(ID + 2, B2Bs(0))), echo=ec, wait=0.5)
 
       """ set goal position """
       # torque off
@@ -1242,12 +1296,12 @@ if __name__ == "__main__":
 
   """
   try:
-    serv_address = ('10.0.0.1', 23)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) 
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    serv_address = (socket.gethostbyname('wifiserial.localhost'), 8000)
     sock.connect(serv_address)
 
-    dx = DXLProtocolV2(sock, 57600, timeout=0.1)
+    dx = DXLProtocolV2(sock, 57600, timeout=0.2, protocoltype=2)
     time.sleep(1)
   except:
     pass
@@ -1266,10 +1320,10 @@ if __name__ == "__main__":
   try:
     serv_address = ('10.0.0.1', 23)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) 
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     sock.connect(serv_address)
 
-    dx = DXLProtocolV1(sock, 57600, timeout=0.05)
+    dx = DXLProtocolV1(sock, 57600, timeout=0.2)
     time.sleep(1)
 
   except:
