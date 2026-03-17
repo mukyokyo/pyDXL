@@ -3,7 +3,6 @@
 # pyDXL.py
 # Class that handles the DYNAMIXEL communication protocol.
 # Supports protocols V1 and V2.
-# Additionally supports serial to ethernet bridge I/F.
 #
 # SPDX-License-Identifier: MIT
 # SPDX-FileCopyrightText: (C) 2024-2026 mukyokyo
@@ -56,7 +55,7 @@ class DXLProtocolV1:
 
   TSyncW = namedtuple("TSyncW", ("id", ("data")))
 
-  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.05, lock=None, protocoltype=0):
+  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.01, timeoutoffset = 0.05, lock=None, protocoltype=0):
     """
     Initalize
 
@@ -67,7 +66,9 @@ class DXLProtocolV1:
     baudrate : int
       Serial baudrate[bps]
     timeout : float
-      Read timeout[s]
+      The read timeout passed to sockets or pyserial[s]
+    timeoutoffset : float
+      Increment relative to the expected packet reception time[s]
     lock: threading.Lock
       Mutex
     protocoltype: int
@@ -78,24 +79,38 @@ class DXLProtocolV1:
       self.__sock = None
       self.__baudrate = port.baudrate
       self.__timeout = port.timeout
+      for i in range(60000):
+        self.__serial.reset_input_buffer()
     elif isinstance(port, socket.socket):
       self.__serial = None
       self.__sock = port
       self.__baudrate = baudrate
       self.__timeout = timeout
-      self.__sock.settimeout(timeout)
+      self.__sock.settimeout(abs(timeout))
       self.__protocoltype = protocoltype
       self.__send_uart_conf(baudrate)
     else:
-      self.__serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
+      self.__serial = serial.Serial(port, baudrate=baudrate, timeout=abs(timeout))
       self.__sock = None
       self.__baudrate = self.__serial.baudrate
       self.__timeout = self.__serial.timeout
+      for i in range(60000):
+        self.__serial.reset_input_buffer()
+
+    self.__offsettime = timeoutoffset
+
     if lock is None:
       self.__lock = threading.Lock()
     else:
       self.__lock = lock
     self.__Error = 0
+
+  def __enter__(self):
+    return self
+
+  def __exit__(self, ex_type, ex_value, trace):
+    if self.__serial is not None:
+      self.__serial.close()
 
   def __send_uart_conf(self, baud):
     if self.__protocoltype == 1:
@@ -143,7 +158,7 @@ class DXLProtocolV1:
   def timeout(self, timeout):
     self.__timeout = timeout
     if self.__sock:
-      self.__sock.settimeout(self.__timeout)
+      self.__sock.settimeout(timeout)
     else:
       self.__serial.timeout = timeout
 
@@ -173,6 +188,9 @@ class DXLProtocolV1:
     finally:
       self.__sock.setblocking(True)
       self.__sock.settimeout(self.__timeout)
+
+  def __calctransmittime(self, length):
+    return 10 * length / self.__baudrate
 
   def TxPacket(self, id: int, inst: int, param: bytes, echo=False, wait=-1.0) -> (bytes, bool):
     """
@@ -216,7 +234,7 @@ class DXLProtocolV1:
       if wait >= 0:
         if not self.__sock:
           self.__serial.flush()
-        t = 1.0 / self.__baudrate * 10 * len(instp)
+        t = self.__calctransmittime(len(instp))
         if wait > t:
           time.sleep(wait - t)
         else:
@@ -224,45 +242,29 @@ class DXLProtocolV1:
       return bytes(instp), True
     return None, False
 
+  def __rx_sock(self, length) -> bytes:
+    try:
+      s = self.__sock.recv(length)
+      return s
+    except TimeoutError:
+      return b''
+
   def __rx(self, length) -> bytes:
-    if self.__sock:
-      tout = time.time() + self.__sock.gettimeout()
-      try:
-        s = self.__sock.recv(length)
-      except TimeoutError:
-        return b''
-      else:
-        rxl = len(s)
-        if rxl == length:
-          return s
-        else:
-          r = s
-          length -= rxl
-          if length > 0:
-            while length > 0 and time.time() < tout:
-              try:
-                s = self.__sock.recv(length)
-              except TimeoutError:
-                s = b''
-              r += s
-              length -= len(s)
-          return r
+    tout = time.time() + self.__calctransmittime(length) + self.__offsettime
+    s = self.__rx_sock(length) if self.__sock else self.__serial.read(length)
+    rxl = len(s)
+    if rxl == length:
+      return s
     else:
-      s = self.__serial.read(length)
-      rxl = len(s)
-      if rxl == length:
-        return s
-      else:
-        r = s
-        length -= rxl
+      length -= rxl
+      while tout > time.time() and length > 0:
         if length > 0:
-          while self.__serial.in_waiting > 0:
-            s = self.__serial.read(length)
-            r += s
-            length -= len(s)
-            if length == 0:
-              break
-        return r
+          r = self.__rx_sock(length) if self.__sock else self.__serial.read(length)
+          s += r
+          length -= len(r)
+          if length == 0:
+            break
+      return s
 
   def RxPacket(self, echo=False, timeout=0.0) -> (bytes, bool):
     """
@@ -479,7 +481,7 @@ class DXLProtocolV2:
 
   __crc16_lutable = array.array('H')
 
-  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.05, lock=None, protocoltype=0):
+  def __init__(self, port: Union[serial.Serial, socket.socket, str], baudrate=57600, timeout=0.01, timeoutoffset = 0.05, lock=None, protocoltype=0):
     """
     Initalize
 
@@ -490,7 +492,9 @@ class DXLProtocolV2:
     baudrate : int
       Serial baudrate[bps]
     timeout : float
-      Read timeout[s]
+      The read timeout passed to sockets or pyserial[s]
+    timeoutoffset : float
+      Increment relative to the expected packet reception time[s]
     lock: threading.Lock
       Mutex
     protocoltype: int
@@ -501,19 +505,26 @@ class DXLProtocolV2:
       self.__sock = None
       self.__baudrate = port.baudrate
       self.__timeout = port.timeout
+      for i in range(60000):
+        self.__serial.reset_input_buffer()
     elif isinstance(port, socket.socket):
       self.__serial = None
       self.__sock = port
       self.__baudrate = baudrate
-      self.__timeout = timeout
+      self.__timeout = abs(timeout)
       self.__sock.settimeout(timeout)
       self.__protocoltype = protocoltype
       self.__send_uart_conf(baudrate)
     else:
-      self.__serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
+      self.__serial = serial.Serial(port, baudrate=baudrate, timeout=abs(timeout))
       self.__sock = None
       self.__baudrate = self.__serial.baudrate
       self.__timeout = self.__serial.timeout
+      for i in range(60000):
+        self.__serial.reset_input_buffer()
+
+    self.__offsettime = abs(timeoutoffset)
+
     if lock is None:
       self.__lock = threading.Lock()
     else:
@@ -528,6 +539,14 @@ class DXLProtocolV2:
         nData <<= 1
       self.__crc16_lutable.append(nAccum)
 
+  def __enter__(self):
+    return self
+
+  def __exit__(self, ex_type, ex_value, trace):
+    if self.__serial is not None:
+      self.__serial.close()
+
+  # Transmit baud rate and other settings via a socket
   def __send_uart_conf(self, baud, protocol=1):
     if self.__protocoltype == 1:
       pconf_packet = bytearray([0x55, 0xaa, 0x55, 0, 0, 0, 0x83, 0])
@@ -578,7 +597,7 @@ class DXLProtocolV2:
   def timeout(self, timeout):
     self.__timeout = timeout
     if self.__sock:
-      self.__sock.settimeout(self.__timeout)
+      self.__sock.settimeout(timeout)
     else:
       self.__serial.timeout = timeout
 
@@ -614,6 +633,9 @@ class DXLProtocolV2:
     finally:
       self.__sock.setblocking(True)
       self.__sock.settimeout(self.__timeout)
+
+  def __calctransmittime(self, length):
+    return 10 * length / self.__baudrate
 
   def TxPacket(self, id: int, inst: int, param: bytes, echo=False, wait=-1.0) -> (bytes, bool):
     """
@@ -657,7 +679,7 @@ class DXLProtocolV2:
       if wait >= 0:
         if not self.__sock:
           self.__serial.flush()
-        t = 1.0 / self.__baudrate * 10 * len(instp)
+        t = self.__calctransmittime(len(instp))
         if wait > t:
           time.sleep(wait - t)
         else:
@@ -665,45 +687,29 @@ class DXLProtocolV2:
       return bytes(instp), True
     return None, False
 
+  def __rx_sock(self, length) -> bytes:
+    try:
+      s = self.__sock.recv(length)
+      return s
+    except TimeoutError:
+      return b''
+
   def __rx(self, length) -> bytes:
-    if self.__sock:
-      tout = time.time() + self.__sock.gettimeout()
-      try:
-        s = self.__sock.recv(length)
-      except TimeoutError:
-        return b''
-      else:
-        rxl = len(s)
-        if rxl == length:
-          return s
-        else:
-          r = s
-          length -= rxl
-          if length > 0:
-            while length > 0 and time.time() < tout:
-              try:
-                s = self.__sock.recv(length)
-              except TimeoutError:
-                s = b''
-              r += s
-              length -= len(s)
-          return r
+    tout = time.time() + self.__calctransmittime(length) + self.__offsettime
+    s = self.__rx_sock(length) if self.__sock else self.__serial.read(length)
+    rxl = len(s)
+    if rxl == length:
+      return s
     else:
-      s = self.__serial.read(length)
-      rxl = len(s)
-      if rxl == length:
-        return s
-      else:
-        r = s
-        length -= rxl
+      length -= rxl
+      while tout > time.time() and length > 0:
         if length > 0:
-          while self.__serial.in_waiting > 0:
-            s = self.__serial.read(length)
-            r += s
-            length -= len(s)
-            if length == 0:
-              break
-        return r
+          r = self.__rx_sock(length) if self.__sock else self.__serial.read(length)
+          s += r
+          length -= len(r)
+          if length == 0:
+            break
+      return s
 
   def RxPacket(self, echo=False, timeout=0.0) -> (bytes, bool):
     """
@@ -970,12 +976,12 @@ class DXLProtocolV2:
           return id == rxd[4] and rxd[5] == 7 and rxd[6] == 0
       return False
 
-  def Ping2(self, timeout=1.0, echo=False) -> list:
+  def Ping2(self, timeout=1.2, echo=False) -> list:
     with self.__lock:
       result = []
-      t = time.time()
+      t = time.time() + timeout
       if self.TxPacket(0xfe, self.INST_PING, bytes(), echo)[1]:
-        while time.time() < t + timeout:
+        while time.time() < t:
           rxd, r = self.RxPacket(echo)
           if r:
             if rxd[5] == 7 and rxd[6] == 0:
@@ -1086,11 +1092,15 @@ if __name__ == "__main__":
         print(f' ({d[0]}) 132,4 int32=', unpack('<i', pack('<I', unpack('<I', d[1])[0]))[0] if len(d[1]) > 0 else ())
 
       """ sync write inst. """
+      print('SyncWrite')
       for i in range(30):
+        print(f' {i}', end='\r')
         with stopwatch():
           dx.SyncWrite(65, 1, (dx.TSyncW(ID, B2Bs(1)), dx.TSyncW(ID + 1, B2Bs(1)), dx.TSyncW(ID + 2, B2Bs(1)), dx.TSyncW(ID + 3, B2Bs(1)), dx.TSyncW(ID + 4, B2Bs(1))), echo=ec, wait=0.05)
         with stopwatch():
           dx.SyncWrite(65, 1, (dx.TSyncW(ID, B2Bs(0)), dx.TSyncW(ID + 1, B2Bs(0)), dx.TSyncW(ID + 2, B2Bs(0)), dx.TSyncW(ID + 3, B2Bs(0)), dx.TSyncW(ID + 4, B2Bs(0))), echo=ec, wait=0.05)
+      else:
+        print()
 
       """ set goal position """
       # torque off
@@ -1169,6 +1179,8 @@ if __name__ == "__main__":
 
       dx.Write8(ID, 64, 0, echo=ec)
 
+    except KeyboardInterrupt:
+      pass
     except:
       print('--- Caught Exception ---')
       traceback.print_exc()
@@ -1282,58 +1294,57 @@ if __name__ == "__main__":
   print(sys.version)
 
   try:
-    dx = DXLProtocolV2('\\\\.\\COM12', 57600, timeout=0.05)
+    with DXLProtocolV2('\\\\.\\COM12', 57600, timeoutoffset=0.2) as dx:
+      th1 = Thread(target=func1, args=(dx,))
+      th2 = Thread(target=func2, args=(dx,))
+      th1.start()
+      th2.start()
+      th1.join()
+      th2.join()
   except:
-    pass
-  else:
-    th1 = Thread(target=func1, args=(dx,))
-    th2 = Thread(target=func2, args=(dx,))
-    th1.start()
-    th2.start()
-    th1.join()
-    th2.join()
-    del th1, th2, dx
+    print('--- Caught Exception ---')
+    traceback.print_exc()
+    print('------------------------')
 
   """
   try:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    serv_address = (socket.gethostbyname('wifiserial.localhost'), 8000)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+#    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 10000, 3000))
+    serv_address = (socket.gethostbyname('wifiserial.local'), 8000)
     sock.connect(serv_address)
 
-    dx = DXLProtocolV2(sock, 57600, timeout=0.2, protocoltype=2)
-    time.sleep(1)
-  except:
-    pass
-  else:
-    th1 = Thread(target=func1, args=(dx,))
-    th2 = Thread(target=func2, args=(dx,))
-    th1.start()
-    th2.start()
-    th1.join()
-    th2.join()
-    del th1, th2, dx
+    with DXLProtocolV2(sock, 57600, timeoutoffset=0.2, protocoltype=2) as dx:
+      th1 = Thread(target=func1, args=(dx,))
+      th2 = Thread(target=func2, args=(dx,))
+      th1.start()
+      th2.start()
+      th1.join()
+      th2.join()
     sock.close()
+  except:
+    print('--- Caught Exception ---')
+    traceback.print_exc()
+    print('------------------------')
   """
 
   """
   try:
-    serv_address = ('10.0.0.1', 23)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+#    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 10000, 3000))
+    serv_address = ('wifiserial.local', 8000)
     sock.connect(serv_address)
 
-    dx = DXLProtocolV1(sock, 57600, timeout=0.2)
-    time.sleep(1)
-
-  except:
-    pass
-  else:
-    th3 = Thread(target=func3, args=(dx,))
-    th3.start()
-    th3.join()
-    del th3, dx
+    with DXLProtocolV1(sock, 57600, timeoutoffset=0.2, protocoltype=2) as dx:
+      func3(dx)
     sock.close()
+  except:
+    print('--- Caught Exception ---')
+    traceback.print_exc()
+    print('------------------------')
   """
 
   print('fin')
