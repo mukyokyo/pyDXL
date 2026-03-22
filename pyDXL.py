@@ -66,12 +66,13 @@ class DXLProtocolV1:
     baudrate : int
       Serial baudrate[bps]
     timeout : float
-      The read timeout passed to sockets or pyserial[s]
+      Read timeout passed to sockets or pyserial[s]
     timeoutoffset : float
       Increment relative to the expected packet reception time[s]
     lock: threading.Lock
-      Mutex
+      Any Mutex
     protocoltype: int
+      Baud rate and line control transmission protocol used when using a socket
       0:No 1:PUSR 2:SERIAL_LSRMST_INSERT
     """
     if isinstance(port, serial.Serial):
@@ -194,23 +195,27 @@ class DXLProtocolV1:
 
   def TxPacket(self, id: int, inst: int, param: bytes, echo=False, wait=-1.0) -> (bytes, bool):
     """
-    Sending packets
+    Send instruction packet
 
-    parameters
+    Parameters
     -------------
     id : int
       Target ID
     inst : int
       Instruction command
     param : bytes
-      Packet parameters
+      Instruction packet parameters
+    echo : bool
+      Dump the instruction packet in hex
+    wait : float
+      If a positive number is specified, the system waits for the specified duration (including flushing the send buffer)
 
     Returns
     -------
     bytes
-      Packets sent
+      Sent packets
     bool
-      Success or failure
+      Success/failure status
     """
     self.__reconfig()
     if ((id == self.BROADCASTING_ID) or (id >= 0 and id <= 253)) and len(param) <= (256 - 6):
@@ -268,14 +273,21 @@ class DXLProtocolV1:
 
   def RxPacket(self, echo=False, timeout=0.0) -> (bytes, bool):
     """
-    Receiving packets
+    Receive status packet
+
+    Parameters
+    -------------
+    echo : bool
+      Dump the status packet in hex
+    timeout : float
+      If you specify a value greater than 0, the system will wait for that amount of time
 
     Returns
     -------
     bytes
       Packets received
     bool
-      Success or failure
+      Success/failure status
     """
     if timeout > 0:
       if self.__sock:
@@ -285,6 +297,7 @@ class DXLProtocolV1:
         prev_timeout = self.__serial.timeout
         self.__serial.timeout = timeout
         self.__serial.flushOutput()
+    self.__Error = 0
     statp = self.__rx(5)
     if statp:
       if len(statp) == 5:
@@ -323,11 +336,13 @@ class DXLProtocolV1:
       Target item address
     data : bytes
       Data to be written
+    echo : bool
+      Dump the packet in hex
 
     Returns
     -------
-    result : bool
-      Success or failure
+    bool
+      Success/failure status
     """
     with self.__lock:
       if id >= 0 and id <= self.BROADCASTING_ID and addr >= 0 and addr <= 254:
@@ -361,11 +376,13 @@ class DXLProtocolV1:
       Target item address
     length : int
       Number of bytes to read
+    echo : bool
+      Dump the packet in hex
 
     Returns
     -------
     bytes
-      Data read
+      Read data
     """
     with self.__lock:
       if id >= 0 and id <= 253 and addr >= 0 and addr <= 254 and length > 0 and length <= (256 - 6):
@@ -408,12 +425,14 @@ class DXLProtocolV1:
     length : int
       Number of bytes to write
     id_datas : (TSyncW)
-      Target ID and data
+      Tuple of target ID and the data to be written
+    echo : bool
+      Dump the packet in hex
 
     Returns
     -------
     bool
-      Success or failure
+      Success/failure status
     """
     with self.__lock:
       if addr >= 0 and addr <= 254 and length > 0 and length < (256 - 6):
@@ -427,6 +446,21 @@ class DXLProtocolV1:
       return False
 
   def Ping(self, id: int, echo=False) -> bool:
+    """
+    Confirmation of Response
+
+    parameters
+    -------------
+    addr : int
+      Target item address
+    echo : bool
+      Dump the packet in hex
+
+    Returns
+    -------
+    bool
+      Success/failure status
+    """
     with self.__lock:
       if self.TxPacket(id, self.INST_PING, bytes(), echo)[1]:
         dat, r = self.RxPacket(echo)
@@ -435,6 +469,21 @@ class DXLProtocolV1:
       return False
 
   def FactoryReset(self, id: int, echo=False) -> bool:
+    """
+    Restore to factory settings
+
+    parameters
+    -------------
+    addr : int
+      Target item address
+    echo : bool
+      Dump the packet in hex
+
+    Returns
+    -------
+    bool
+      Success/failure status
+    """
     with self.__lock:
       if self.TxPacket(id, self.INST_FACTORY_RESET, bytes(), echo)[1]:
         dat, r = self.RxPacket(echo)
@@ -443,6 +492,21 @@ class DXLProtocolV1:
       return False
 
   def Reboot(self, id: int, echo=False) -> bool:
+    """
+    Reboot
+
+    parameters
+    -------------
+    addr : int
+      Target item address
+    echo : bool
+      Dump the packet in hex
+
+    Returns
+    -------
+    bool
+      Success/failure status
+    """
     with self.__lock:
       if self.TxPacket(id, self.INST_REBOOT, bytes(), echo)[1]:
         dat, r = self.RxPacket(echo)
@@ -639,23 +703,27 @@ class DXLProtocolV2:
 
   def TxPacket(self, id: int, inst: int, param: bytes, echo=False, wait=-1.0) -> (bytes, bool):
     """
-    Sending packets
+    Send instruction packet
 
-    parameters
+    Parameters
     -------------
     id : int
       Target ID
     inst : int
       Instruction command
     param : bytes
-      Packet parameters
+      Instruction packet parameters
+    echo : bool
+      Dump the instruction packet in hex
+    wait : float
+      If a positive number is specified, the system waits for the specified duration (including flushing the send buffer)
 
     Returns
     -------
     bytes
-      Packets sent
+      Sent packets
     bool
-      Success or failure
+      Success/failure status
     """
     self.__reconfig()
     if ((id == self.BROADCASTING_ID) or (id >= 0 and id <= 252)) and len(param) < (65536 - 10):
@@ -713,14 +781,21 @@ class DXLProtocolV2:
 
   def RxPacket(self, echo=False, timeout=0.0) -> (bytes, bool):
     """
-    Receiving packets
+    Receive status packet
+
+    Parameters
+    -------------
+    echo : bool
+      Dump the status packet in hex
+    timeout : float
+      If you specify a value greater than 0, the system will wait for that amount of time
 
     Returns
     -------
     bytes
       Packets received
     bool
-      Success or failure
+      Success/failure status
     """
     if timeout > 0:
       if self.__sock:
@@ -730,6 +805,7 @@ class DXLProtocolV2:
         prev_timeout = self.__serial.timeout
         self.__serial.timeout = timeout
         self.__serial.flushOutput()
+    self.__Error = 0
     statp = self.__rx(9)
     if statp:
       if len(statp) == 9:
@@ -769,11 +845,13 @@ class DXLProtocolV2:
       Target item address
     data : bytes
       Data to be written
+    echo : bool
+      Dump the packet in hex
 
     Returns
     -------
-    result : bool
-      Success or failure
+    bool
+      Success/failure status
     """
     with self.__lock:
       if ((id >= 0 and id <= 252) or (id == self.BROADCASTING_ID)) and addr >= 0 and addr <= 65535:
@@ -807,13 +885,13 @@ class DXLProtocolV2:
       Target item address
     length : int
       Number of bytes to read
+    echo : bool
+      Dump the packet in hex
 
     Returns
     -------
     bytes
-      Data read
-    bool
-      Success or failure
+      Read data
     """
     with self.__lock:
       if id >= 0 and id <= 252 and addr >= 0 and addr <= 65535 and length > 0 and length < (65536 - 10):
@@ -847,7 +925,6 @@ class DXLProtocolV2:
 
   def SyncWrite(self, addr: int, length: int, id_datas: (TSyncW), echo=False, wait=-1.0) -> bool:
     """
-    return None, False
     Sync Write instruction
 
     parameters
@@ -857,12 +934,14 @@ class DXLProtocolV2:
     length : int
       Number of bytes to write
     id_datas : (TSyncW)
-      Target ID and data
+      Tuple of target ID and the data to be written
+    echo : bool
+      Dump the packet in hex
 
     Returns
     -------
     bool
-      Success or failure
+      Success/failure status
     """
     with self.__lock:
       if addr >= 0 and addr <= 65535 and length > 0 and length < (65536 - 10):
@@ -969,6 +1048,21 @@ class DXLProtocolV2:
       return result
 
   def Ping(self, id: int, echo=False) -> bool:
+    """
+    Confirmation of Response
+
+    parameters
+    -------------
+    addr : int
+      Target item address
+    echo : bool
+      Dump the packet in hex
+
+    Returns
+    -------
+    bool
+      Success/failure status
+    """
     with self.__lock:
       if self.TxPacket(id, self.INST_PING, bytes(), echo)[1]:
         rxd, r = self.RxPacket(echo)
@@ -977,6 +1071,23 @@ class DXLProtocolV2:
       return False
 
   def Ping2(self, timeout=1.2, echo=False) -> list:
+    """
+    Confirm all responses
+
+    parameters
+    -------------
+    addr : int
+      Target item address
+    timeout : float
+      Timeout for response confirmation[s]
+    echo : bool
+      Dump the packet in hex
+
+    Returns
+    -------
+    bool
+      Success/failure status
+    """
     with self.__lock:
       result = []
       t = time.time() + timeout
@@ -989,6 +1100,24 @@ class DXLProtocolV2:
       return result
 
   def FactoryReset(self, id: int, p1: int, echo=False) -> bool:
+    """
+    Restore to factory settings
+
+    parameters
+    -------------
+    addr : int
+      Target item address
+    p1 : int
+      Option parameter
+      1:Reset all except ID, 2:Reset all except ID and Baudrate, 255:Reset all
+    echo : bool
+      Dump the packet in hex
+
+    Returns
+    -------
+    bool
+      Success/failure status
+    """
     with self.__lock:
       if self.TxPacket(id, self.INST_FACTORY_RESET, bytes((p1,)), echo)[1]:
         rxd, r = self.RxPacket(echo)
@@ -997,6 +1126,21 @@ class DXLProtocolV2:
       return False
 
   def Reboot(self, id: int, echo=False) -> bool:
+    """
+    Reboot
+
+    parameters
+    -------------
+    addr : int
+      Target item address
+    echo : bool
+      Dump the packet in hex
+
+    Returns
+    -------
+    bool
+      Success/failure status
+    """
     with self.__lock:
       if self.TxPacket(id, self.INST_REBOOT, bytes(), echo)[1]:
         rxd, r = self.RxPacket(echo)
