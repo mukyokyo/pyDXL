@@ -15,6 +15,8 @@ class DXL_master(DXLProtocolV2):
     self._dx = super().__init__(*args, **kwargs)
     self._syncw_context = None
     self._bulkw_context = None
+    self._syncr_group = None
+    self._syncr_names = set()
 
   @contextlib.contextmanager
   def sync_write(self, info):
@@ -36,13 +38,29 @@ class DXL_master(DXLProtocolV2):
     finally:
       self._bulkw_context = None
 
+  @contextlib.contextmanager
+  def sync_read(self, *instances):
+    self._syncr_group = instances
+    self._syncr_names.clear()
+    try:
+      yield self
+    finally:
+      for name in list(self._syncr_names):
+        cache_name = f"_{name}"
+        for obj in instances:
+          if cache_name in obj.__dict__:
+            del obj.__dict__[cache_name]
+      self._syncr_group = None
+      self._syncr_names.clear()
+
 
 class dxl:
 
   BaudrateList = {0: 9600, 1: 57600, 2: 115200, 3: 1000000, 4: 2000000, 5: 3000000, 6: 4000000, 7: 4500000, 8: 6000000, 9: 10500000}
   StatusError = {0x01: 'Result Fail', 0x02: 'Instruction Error', 0x03: 'CRC Error', 0x04: 'Data Range Error', 0x05: 'Data Length Error', 0x06: 'Data Limit Error', 0x07: 'Access Error'}
 
-  # name : (address, format, direction, (range), unit/(unit), coefficient/(coefficient))
+  # items format
+  #   item name : (address, format, 'direction', (range), unit/(unit), coefficient/(coefficient))
 
   def __del__(self):
     pass
@@ -59,10 +77,7 @@ class dxl:
     elif isinstance(data, list):
       return [self._parse_expressions(i) for i in data]
     elif isinstance(data, str):
-      has_op = any(op in data for op in "+*/-")
-      has_bracket = any(b in data for b in "[]{}")
-
-      if has_op and not has_bracket:
+      if any(op in data for op in '+*/-') and not any(b in data for b in '[]{}'):
         try:
           return eval(data)
         except:
@@ -71,7 +86,6 @@ class dxl:
 
   def _build_index(self, config_dir):
     master_config = {}
-
     for filename in os.listdir(config_dir):
       if filename.endswith('.json'):
         with open(os.path.join(config_dir, filename), 'r') as f:
@@ -84,6 +98,7 @@ class dxl:
     return self._parse_expressions(master_config)
 
   def __init__(self, dx_instance, dxl_id):
+    self._cache = {}
     self._model_index = self._build_index('model_data/')
     self._dx = dx_instance
     self._id = dxl_id
@@ -149,59 +164,79 @@ class dxl:
         ret += f'[{unit}]'
     return ret
 
+  def _conv_bytes_to_value(self, name, fmt, unit, coef, val):
+    p = tuple(struct.iter_unpack('<' + fmt, val))[0]
+    if len(p) == 1:
+      class conv_physvalue(int):
+
+        @property
+        def info(self_val):
+          return self._items[name]
+
+        @property
+        def phys(self_val):
+          return float(self_val) * coef
+
+        @property
+        def str(self_val):
+          return self._genstr(self_val, coef, unit)
+
+        @phys.setter
+        def phys(self_val, val):
+          setattr(self, name, int(val / coef))
+
+      return conv_physvalue(p[0])
+    else:
+      class conv_physvalue(tuple):
+
+        @property
+        def info(self_val):
+          return self._items[name]
+
+        @property
+        def phys(self_val):
+          if isinstance(self_val, list | tuple):
+            return list(float(x) * (y if y is not None else 1.0) for (x, y) in zip(self_val, coef))
+          else:
+            return float(self_val) * coef
+
+        @property
+        def str(self_val):
+          return self._genstr(self_val, coef, unit)
+
+        @phys.setter
+        def phys(self_val, val):
+          if isinstance(val, list | tuple):
+            setattr(self, name, list(int(x / (y if y is not None else 1.0)) for (x, y) in zip(val, coef)))
+          else:
+            setattr(self, name, int(val / coef))
+
+      return conv_physvalue(p[0] if len(p) == 1 else p)
+
   def __getattr__(self, name):
     if name in self._items:
       addr, fmt, _, _, unit, coef = self._items[name]
       size = struct.calcsize(fmt)
+
+      if hasattr(self, f"_{name}"):
+        return getattr(self, f"_{name}")
+
+      group = self._dx._syncr_group
+      if group is not None and self in group:
+        if name not in self._dx._syncr_names:
+          ids = [obj.id for obj in self._dx._syncr_group]
+          results = dict(self._dx.SyncRead(addr, size, ids))
+          if results:
+            for obj in group:
+              if obj.id in results:
+                wrapped_val = self._conv_bytes_to_value(name, fmt, unit, coef, results[obj.id])
+                setattr(obj, f"_{name}", wrapped_val)
+          self._dx._syncr_names.add(name)
+          return getattr(self, f"_{name}", 0)
+
       r = self._dx.Read(self._id, addr, size)
       if r is not None:
-        p = tuple(struct.iter_unpack('<' + fmt, r))[0]
-        if len(p) == 1:
-          class conv_physvalue(int):
-
-            @property
-            def info(self_val):
-              return self._items[name]
-
-            @property
-            def phys(self_val):
-              return float(self_val) * coef
-
-            @property
-            def str(self_val):
-              return self._genstr(self_val, coef, unit)
-
-            @phys.setter
-            def phys(self_val, val):
-              setattr(self, name, int(val / coef))
-
-          return conv_physvalue(p[0])
-        else:
-          class conv_physvalue(tuple):
-
-            @property
-            def info(self_val):
-              return self._items[name]
-
-            @property
-            def phys(self_val):
-              if isinstance(self_val, list | tuple):
-                return list(float(x) * (y if y is not None else 1.0) for (x, y) in zip(self_val, coef))
-              else:
-                return float(self_val) * coef
-
-            @property
-            def str(self_val):
-              return self._genstr(self_val, coef, unit)
-
-            @phys.setter
-            def phys(self_val, val):
-              if isinstance(val, list | tuple):
-                setattr(self, name, list(int(x / (y if y is not None else 1.0)) for (x, y) in zip(val, coef)))
-              else:
-                setattr(self, name, int(val / coef))
-
-          return conv_physvalue(p[0] if len(p) == 1 else p)
+        return self._conv_bytes_to_value(name, fmt, unit, coef, r)
       else:
         if self._dx.Error == 0:
           warnings.warn('Read operation failed. It appears to be a receve timeout.', UserWarning)
@@ -285,28 +320,28 @@ if __name__ == '__main__':
       _d.Torque_Enable = 1
       _d.Profile_Velocity.phys = 29.0
 
-    d[0].Goal_Position.phys = 0
+    for _d in d:
+      _d.Goal_Position.phys = 0
     sleep(1)
-    d[0].Goal_Position.phys = -90.0
+    for _d in d:
+      _d.Goal_Position.phys = -90.0
     sleep(1)
-    d[0].Goal_Position.phys = 90.0
+    for _d in d:
+      _d.Goal_Position.phys = 90.0
     sleep(1)
 
     for i in range(36):
-      d[0].Goal_Position.phys = -180 + 10.0 * i
+      d[0].Goal_Position.phys = -179 + 10.0 * i
       for j in range(10):
         print(f'{d[0].Goal_Position.phys:7.1f} {d[0].Present_Position.phys:7.1f}', end='\r')
         sleep(0.01)
     else:
       print()
 
-    for _d in d:
-      _d.Profile_Velocity.phys = 0
-
     with dx2.sync_write(d[0].Goal_Position.info):
       for _d in d:
         _d.Goal_Position = 0
-    sleep(0.5)
+    sleep(2.5)
 
     for _d in d:
       _d.Torque_Enable = 0
@@ -325,6 +360,13 @@ if __name__ == '__main__':
         print(ret[0], d[-1].modelname)
       else:
         d.pop(-1)
+
+    for i in range(100):
+      with dx2.sync_read(d[0], d[1], d[2]):
+        a = d[0].Present_Position.phys
+        b = d[1].Present_Position.phys
+        c = d[2].Present_Position.phys
+      print('a,b,c=', a, b, c)
 
     for _d in d:
       _d.Torque_Enable = 1
