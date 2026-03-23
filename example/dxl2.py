@@ -98,7 +98,7 @@ class dxl:
         model_info = self._model_index.get('models').get(f'0x{model_num:04X}')
         self._modelname = model_info.get('modelname')
         self._items = self._model_index.get(model_info.get('controltable')).copy()
-        self._items.update(self._items.get('override', {}))
+        self._items.update(model_info.get('overrides', {}))
     else:
       self._items = {}
       self._modelname = None
