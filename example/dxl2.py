@@ -4,7 +4,7 @@
 # It can handle numerical clips and physical values, and you can add items with custom structures.
 # Since the control table is of type `dict`, one option would be to save it as a separate file for
 # each model and load it from there.
-# Oh, right, it also supports sync and bulk writes.
+# Oh, right, it also supports sync write, sync read and bulk write.
 
 from pyDXL import DXLProtocolV2
 import warnings, struct, contextlib, json, os
@@ -13,6 +13,7 @@ import warnings, struct, contextlib, json, os
 class DXL_master(DXLProtocolV2):
   def __init__(self, *args, **kwargs):
     self._dx = super().__init__(*args, **kwargs)
+
     self._syncw_context = None
     self._bulkw_context = None
     self._syncr_group = None
@@ -33,7 +34,7 @@ class DXL_master(DXLProtocolV2):
     self._bulkw_context = {'data': []}
     try:
       yield
-      if self._bulkw_context['data']:
+      if self._bulkw_context:
         self.BulkWrite((self.TBulkW(d[0], d[1], d[2]) for d in self._bulkw_context['data']), wait=0)
     finally:
       self._bulkw_context = None
@@ -164,7 +165,7 @@ class dxl:
         ret += f'[{unit}]'
     return ret
 
-  def _conv_bytes_to_value(self, name, fmt, unit, coef, val):
+  def _conv_format_value(self, name, fmt, unit, coef, val):
     p = tuple(struct.iter_unpack('<' + fmt, val))[0]
     if len(p) == 1:
       class conv_physvalue(int):
@@ -222,21 +223,22 @@ class dxl:
         return getattr(self, f"_{name}")
 
       group = self._dx._syncr_group
-      if group is not None and self in group:
-        if name not in self._dx._syncr_names:
-          ids = [obj.id for obj in self._dx._syncr_group]
-          results = dict(self._dx.SyncRead(addr, size, ids))
-          if results:
+      if group is not None:
+        if self in group:
+          if name not in self._dx._syncr_names:
+            results = dict(self._dx.SyncRead(addr, size, [obj.id for obj in self._dx._syncr_group]))
             for obj in group:
-              if obj.id in results:
-                wrapped_val = self._conv_bytes_to_value(name, fmt, unit, coef, results[obj.id])
+              if results and obj.id in results:
+                wrapped_val = self._conv_format_value(name, fmt, unit, coef, results[obj.id])
                 setattr(obj, f"_{name}", wrapped_val)
-          self._dx._syncr_names.add(name)
-          return getattr(self, f"_{name}", 0)
+              else:
+                setattr(obj, f"_{name}", None)
+              self._dx._syncr_names.add(name)
+            return getattr(self, f"_{name}", 0)
 
       r = self._dx.Read(self._id, addr, size)
       if r is not None:
-        return self._conv_bytes_to_value(name, fmt, unit, coef, r)
+        return self._conv_format_value(name, fmt, unit, coef, r)
       else:
         if self._dx.Error == 0:
           warnings.warn('Read operation failed. It appears to be a receve timeout.', UserWarning)
@@ -366,7 +368,7 @@ if __name__ == '__main__':
         a = d[0].Present_Position.phys
         b = d[1].Present_Position.phys
         c = d[2].Present_Position.phys
-      print('a,b,c=', a, b, c)
+      print('a, b, c=', a, b, c, end='                           \r')
 
     for _d in d:
       _d.Torque_Enable = 1
