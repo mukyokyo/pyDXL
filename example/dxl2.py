@@ -22,37 +22,31 @@ class DXL_master(DXLProtocolV2):
   @contextlib.contextmanager
   def sync_write(self, info):
     self._syncw_context = {'name': info, 'data': []}
-    try:
-      yield
-      if self._syncw_context['data']:
-        self.SyncWrite(info[0], struct.calcsize(info[1]), (self.TSyncW(d[0], d[1]) for d in self._syncw_context['data']), wait=0)
-    finally:
-      self._syncw_context = None
+    yield
+    if self._syncw_context['data']:
+      self.SyncWrite(info[0], struct.calcsize(info[1]), (self.TSyncW(d[0], d[1]) for d in self._syncw_context['data']), wait=0)
+    self._syncw_context = None
 
   @contextlib.contextmanager
   def bulk_write(self):
     self._bulkw_context = {'data': []}
-    try:
-      yield
-      if self._bulkw_context:
-        self.BulkWrite((self.TBulkW(d[0], d[1], d[2]) for d in self._bulkw_context['data']), wait=0)
-    finally:
-      self._bulkw_context = None
+    yield
+    if self._bulkw_context:
+      self.BulkWrite((self.TBulkW(d[0], d[1], d[2]) for d in self._bulkw_context['data']), wait=0)
+    self._bulkw_context = None
 
   @contextlib.contextmanager
   def sync_read(self, *instances):
     self._syncr_group = instances
     self._syncr_names.clear()
-    try:
-      yield self
-    finally:
-      for name in list(self._syncr_names):
-        cache_name = f"_{name}"
-        for obj in instances:
-          if cache_name in obj.__dict__:
-            del obj.__dict__[cache_name]
-      self._syncr_group = None
-      self._syncr_names.clear()
+    yield self
+    for name in list(self._syncr_names):
+      cache_name = f"_{name}"
+      for obj in instances:
+        if cache_name in obj.__dict__:
+          del obj.__dict__[cache_name]
+    self._syncr_group = None
+    self._syncr_names.clear()
 
 
 class dxl:
@@ -98,7 +92,11 @@ class dxl:
               master_config[key] = value
     return self._parse_expressions(master_config)
 
+  def _custom_formatwarning(self, message, category, filename, lineno, line=None):
+    return f'{category.__name__}: {message}\n'
+
   def __init__(self, dx_instance, dxl_id):
+    warnings.formatwarning = self._custom_formatwarning
     self._cache = {}
     self._model_index = self._build_index('model_data/')
     self._dx = dx_instance
@@ -258,7 +256,16 @@ class dxl:
         raise AttributeError(f'{name} is Read-Only')
       v_min, v_max = val_range
       if v_min is not None and v_max is not None:
-        if not (v_min <= value <= v_max):
+        if isinstance(v_min, list | tuple) and isinstance(v_max, list | tuple) and isinstance(value, list | tuple):
+          newvalue = list(value)
+          for i, (_vmin, _vmax, _v) in enumerate(zip(v_min, v_max, newvalue)):
+            if not (_vmin <= _v <= _vmax):
+              _nv = min(max(_v, _vmin), _vmax)
+              warnings.warn(f'Out of Range: {name} ({_v}) must be {_vmin}~{_vmax}. Clipped at {_nv}', UserWarning)
+              newvalue[i] = _nv
+          value = list(newvalue)
+
+        elif not (v_min <= value <= v_max):
           newvalue = min(max(value, v_min), v_max)
           warnings.warn(f'Out of Range: {name} ({value}) must be {v_min}~{v_max}. Clipped at {newvalue}', UserWarning)
           value = newvalue
@@ -302,8 +309,13 @@ class dxl:
 
 
 if __name__ == '__main__':
-  from time import sleep
+  from time import sleep, time
   import random
+
+  def wait(t):
+    end_time = time() + t
+    while end_time > time():
+      yield end_time - time()
 
   with DXL_master('\\\\.\\COM20', 9600, timeoutoffset=0.5, protocoltype=2) as dx2:
 
@@ -363,20 +375,37 @@ if __name__ == '__main__':
       else:
         d.pop(-1)
 
-    for i in range(100):
-      with dx2.sync_read(d[0], d[1], d[2]):
-        a = d[0].Present_Position.phys
-        b = d[1].Present_Position.phys
-        c = d[2].Present_Position.phys
-      print('a, b, c=', a, b, c, end='                           \r')
-
+    print('>all axis off')
     for _d in d:
+      _d.Torque_Enable = 0
+      _d.Profile_Velocity = 0
+      print(f' {_d.id} Torque_Enable={_d.Torque_Enable}')
+
+    print('>all axis pos monitor with SI value (sync read)')
+    for t in wait(5):
+      p = []
+      with dx2.sync_read([_d for _d in d]):
+        p = [_d.Present_Position.phys for _d in d]
+      print(f' {t:4.1f} present position=', *[f'{_p:6.1f}' for _p in p], end='\r')
+    else:
+      print()
+
+    print('>all axis on')
+    for _d in d:
+      _d.Operating_Mode = 3
       _d.Torque_Enable = 1
       _d.Profile_Velocity = 0
-      print('Torque_Enable=', _d.Torque_Enable.str)
-      print('GoalVeloPos.phys=', _d.GoalVeloPos.str)
-      print('PresentValues.phys=', _d.PresentValues.str)
+      print(f' {_d.id} Torque_Enable={_d.Torque_Enable} Operating_Mode={_d.Operating_Mode}')
 
+    print('>1 axis pos set with SI value')
+    for i in range(36):
+      d[0].Goal_Position.phys = 10.0 * i
+      for _ in wait(0.5):
+        print(f'{d[0].Goal_Position.phys:6.1f} {d[0].Present_Position.phys:7.1f}', end='\r')
+    else:
+      print()
+
+    print('>1 axis velo+pos with SI value')
     d[0].GoalVeloPos.phys = 20.0, 0.5
     sleep(1)
     d[0].GoalVeloPos.phys = 10.0, 280.0
@@ -384,37 +413,7 @@ if __name__ == '__main__':
     d[0].GoalVeloPos.phys = 60.0, 180.0
     sleep(1)
 
-    for i in range(20):
-      print(f'bulk {i + 1}/20', end='\r')
-      with dx2.bulk_write():
-        if len(d) >= 1: d[0].GoalVeloPos = random.randint(50, 300), random.randint(2047 - 512, 2047 + 512)
-        if len(d) >= 2: d[1].Goal_Position = random.randint(2047 - 512, 2047 + 512)
-        if len(d) >= 3: d[2].Goal_Position = random.randint(2047 - 512, 2047 + 512)
-        if len(d) >= 4: d[3].LED = random.randint(0, 1)
-        if len(d) >= 5: d[4].LED = random.randint(0, 1)
-        if len(d) >= 6: d[5].LED = random.randint(0, 1)
-      sleep(0.3)
-    else:
-      print()
-
-    d[0].Profile_Velocity = 0
-    d[0].Goal_Position = 2047
-    sleep(0.3)
-    d[0].Goal_Position = 0
-    sleep(0.3)
-    d[0].Goal_Position = 4095
-    sleep(0.3)
-    d[0].Goal_Position = 0
-    sleep(0.3)
-
-    for i in range(36):
-      d[0].Goal_Position.phys = 10.0 * i
-      for j in range(10):
-        print(f'{d[0].Goal_Position.phys:7.1f} {d[0].Present_Position.phys:7.1f}', end='\r')
-        sleep(0.01)
-    else:
-      print()
-
+    print('>all axis pos set (sync write)')
     with dx2.sync_write(d[0].Goal_Position.info):
       for _d in d:
         _d.Goal_Position = 0
@@ -430,18 +429,36 @@ if __name__ == '__main__':
         _d.Goal_Position = 4095
     sleep(1)
 
+    print('>all axis LED flash (sync write)')
     for i in range(50):
       with dx2.sync_write(d[0].LED.info):
         for _d in d:
           _d.LED ^= 1
       sleep(0.01)
 
+    print('>all axis velo+pos set (sync write)')
     for i, p in enumerate(range(0, 4095, 100)):
       print(f'sync {i + 1}/41', end='\r')
       with dx2.sync_write(d[0].GoalVeloPos.info):
         for _d in d:
           _d.GoalVeloPos = 45, p
-      sleep(0.5)
+      for _ in wait(0.5):
+        with dx2.sync_read([_d for _d in d]):
+          print(*[f'{_d.Present_Position:5}' for _d in d], end='\r')
+    else:
+      print()
+
+    print('>all axis ramdom test(bulk write)')
+    for i in range(20):
+      print(f' {i + 1}/20', end='\r')
+      with dx2.bulk_write():
+        if len(d) >= 1: d[0].GoalVeloPos = random.randint(50, 300), random.randint(2047 - 512, 2047 + 512)
+        if len(d) >= 2: d[1].Goal_Position = random.randint(2047 - 512, 2047 + 512)
+        if len(d) >= 3: d[2].Goal_Position = random.randint(2047 - 512, 2047 + 512)
+        if len(d) >= 4: d[3].LED = random.randint(0, 1)
+        if len(d) >= 5: d[4].LED = random.randint(0, 1)
+        if len(d) >= 6: d[5].LED = random.randint(0, 1)
+      sleep(0.3)
     else:
       print()
 
@@ -452,3 +469,4 @@ if __name__ == '__main__':
 
     for _d in d:
       _d.Torque_Enable = 0
+    print('fin.')
