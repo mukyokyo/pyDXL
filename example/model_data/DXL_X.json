@@ -89,7 +89,7 @@
                "overrides": {
                  "Current_Limit": [38, "H", "rw", [0, 1750], "mA", 1.0],
                  "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "PWM_Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
                  "Goal_Current": [102, "h", "rw", [-1750, 1750], "mA", 1.0],
                  "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
               }},
@@ -97,7 +97,7 @@
                "overrides": {
                  "Current_Limit": [38, "H", "rw", [0, 1750], "mA", 1.0],
                  "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "PWM_Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
                  "Goal_Current": [102, "h", "rw", [-1750, 1750], "mA", 1.0],
                  "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
               },
@@ -107,7 +107,7 @@
                "overrides": {
                  "Current_Limit": [38, "H", "rw", [0, 2352], "mA", 1.0],
                  "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "PWM_Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
                  "Goal_Current": [102, "h", "rw", [-2352, 2352], "mA", 1.0],
                  "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
               },
@@ -117,7 +117,7 @@
                "overrides": {
                  "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
                  "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "PWM_Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
                  "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
                  "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
               },
@@ -127,7 +127,7 @@
                "overrides": {
                  "Current_Limit": [38, "H", "rw", [0, 2352], "mA", 1.0],
                  "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "PWM_Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
                  "Goal_Current": [102, "h", "rw", [-2352, 2352], "mA", 1.0],
                  "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
               },
@@ -137,7 +137,7 @@
                "overrides": {
                  "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
                  "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "PWM_Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
                  "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
                  "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
               },
@@ -180,7 +180,7 @@
                "overrides": {
                  "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
                  "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "PWM_Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
                  "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
                  "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
               },
