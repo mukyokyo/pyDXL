@@ -9,7 +9,6 @@
 from pyDXL import DXLProtocolV2
 import warnings, struct, contextlib, json, os
 
-
 class DXL_master(DXLProtocolV2):
   def __init__(self, *args, **kwargs):
     self._dx = super().__init__(*args, **kwargs)
@@ -113,6 +112,8 @@ class dxl:
         self._modelname = model_info.get('modelname')
         self._items = self._model_index.get(model_info.get('controltable')).copy()
         self._items.update(model_info.get('overrides', {}))
+        [self._items.pop(key, None) for key in model_info.get('remove', {})]
+        self._items = dict(sorted(self._items.items(), key=lambda x: x[1][0]))
     else:
       self._items = {}
       self._modelname = None
@@ -137,6 +138,11 @@ class dxl:
 
   def updateitems(self, itm):
     self._items.update(itm)
+    self._items = dict(sorted(self._items.items(), key=lambda x: x[1][0]))
+
+  def dump(self):
+    for i in self._items:
+      print(f'{self._items[i][0]}:{i}={self.__getattr__(i)}')
 
   def _genstr(self, val, coef, unit):
     ret = ''
@@ -310,163 +316,182 @@ class dxl:
 
 if __name__ == '__main__':
   from time import sleep, time
-  import random
+  import random, traceback, sys
 
   def wait(t):
     end_time = time() + t
     while end_time > time():
       yield end_time - time()
 
-  with DXL_master('\\\\.\\COM20', 9600, timeoutoffset=0.5, protocoltype=2) as dx2:
+  with DXL_master('\\\\.\\COM20', 2000000, timeoutoffset=0.5, protocoltype=2) as dx2:
 
-    '''
-    rets = dx2.Ping2()
-    rets.sort()
-    d = []
-    for ret in rets:
-      d += dxl(dx2, ret[0]),
-      if d[-1].modelname is not None:
-        print(ret[0], d[-1].modelname)
+    try:
+      '''
+      rets = dx2.Ping2()
+      rets.sort()
+      d = []
+      for ret in rets:
+        d += dxl(dx2, ret[0]),
+        if d[-1].modelname is not None:
+          print(ret[0], d[-1].modelname)
+        else:
+          d.pop(-1)
+
+      if d == []:
+        sys.exit()
+
+      for _d in d:
+        _d.Torque_Enable = 1
+        _d.Profile_Velocity.phys = 29.0
+
+      for _d in d:
+        _d.Goal_Position.phys = 0
+      sleep(1)
+      for _d in d:
+        _d.Goal_Position.phys = -90.0
+      sleep(1)
+      for _d in d:
+        _d.Goal_Position.phys = 90.0
+      sleep(1)
+
+      for i in range(36):
+        d[0].Goal_Position.phys = -179 + 10.0 * i
+        for j in range(10):
+          print(f'{d[0].Goal_Position.phys:7.1f} {d[0].Present_Position.phys:7.1f}', end='\r')
+          sleep(0.01)
       else:
-        d.pop(-1)
+        print()
 
-    for _d in d:
-      _d.Torque_Enable = 1
-      _d.Profile_Velocity.phys = 29.0
-
-    for _d in d:
-      _d.Goal_Position.phys = 0
-    sleep(1)
-    for _d in d:
-      _d.Goal_Position.phys = -90.0
-    sleep(1)
-    for _d in d:
-      _d.Goal_Position.phys = 90.0
-    sleep(1)
-
-    for i in range(36):
-      d[0].Goal_Position.phys = -179 + 10.0 * i
-      for j in range(10):
-        print(f'{d[0].Goal_Position.phys:7.1f} {d[0].Present_Position.phys:7.1f}', end='\r')
-        sleep(0.01)
-    else:
-      print()
-
-    with dx2.sync_write(d[0].Goal_Position.info):
-      for _d in d:
-        _d.Goal_Position = 0
-    sleep(2.5)
-
-    for _d in d:
-      _d.Torque_Enable = 0
-    '''
-
-    rets = dx2.Ping2()
-    rets.sort()
-    d = []
-    for ret in rets:
-      d += dxl(dx2, ret[0]),
-      if d[-1].modelname is not None:
-        d[-1].updateitems({
-          'GoalVeloPos': (112, 'ii', 'rw', (None, None), ('rpm', 'deg'), (0.229, 360 / 4096)),
-          'PresentValues': (124, 'hhiiiiHB', 'r', (None, None), ('%', '', 'rpm', 'deg', 'rpm', 'deg', 'V', 'degC'), (100 / 885, None, 0.229, 360 / 4096, 0.229, 360 / 4096, 0.1, 1.0)),
-        })
-        print(ret[0], d[-1].modelname)
-      else:
-        d.pop(-1)
-
-    print('>all axis off')
-    for _d in d:
-      _d.Torque_Enable = 0
-      _d.Profile_Velocity = 0
-      print(f' {_d.id} Torque_Enable={_d.Torque_Enable}')
-
-    print('>all axis pos monitor with SI value (sync read)')
-    for t in wait(5):
-      p = []
-      with dx2.sync_read([_d for _d in d]):
-        p = [_d.Present_Position.phys for _d in d]
-      print(f' {t:4.1f} present position=', *[f'{_p:6.1f}' for _p in p], end='\r')
-    else:
-      print()
-
-    print('>all axis on')
-    for _d in d:
-      _d.Operating_Mode = 3
-      _d.Torque_Enable = 1
-      _d.Profile_Velocity = 0
-      print(f' {_d.id} Torque_Enable={_d.Torque_Enable} Operating_Mode={_d.Operating_Mode}')
-
-    print('>1 axis pos set with SI value')
-    for i in range(36):
-      d[0].Goal_Position.phys = 10.0 * i
-      for _ in wait(0.5):
-        print(f'{d[0].Goal_Position.phys:6.1f} {d[0].Present_Position.phys:7.1f}', end='\r')
-    else:
-      print()
-
-    print('>1 axis velo+pos with SI value')
-    d[0].GoalVeloPos.phys = 20.0, 0.5
-    sleep(1)
-    d[0].GoalVeloPos.phys = 10.0, 280.0
-    sleep(1)
-    d[0].GoalVeloPos.phys = 60.0, 180.0
-    sleep(1)
-
-    print('>all axis pos set (sync write)')
-    with dx2.sync_write(d[0].Goal_Position.info):
-      for _d in d:
-        _d.Goal_Position = 0
-    sleep(1)
-
-    with dx2.sync_write(d[0].Goal_Position.info):
-      for _d in d:
-        _d.Goal_Position = 2047
-    sleep(1)
-
-    with dx2.sync_write(d[0].Goal_Position.info):
-      for _d in d:
-        _d.Goal_Position = 4095
-    sleep(1)
-
-    print('>all axis LED flash (sync write)')
-    for i in range(50):
-      with dx2.sync_write(d[0].LED.info):
+      with dx2.sync_write(d[0].Goal_Position.info):
         for _d in d:
-          _d.LED ^= 1
-      sleep(0.01)
+          _d.Goal_Position = 0
+      sleep(2.5)
 
-    print('>all axis velo+pos set (sync write)')
-    for i, p in enumerate(range(0, 4095, 100)):
-      print(f'sync {i + 1}/41', end='\r')
+      for _d in d:
+        _d.Torque_Enable = 0
+      '''
+
+      rets = dx2.Ping2()
+      rets.sort()
+      d = []
+      for ret in rets:
+        d += dxl(dx2, ret[0]),
+        if d[-1].modelname is not None:
+          d[-1].updateitems({
+            'GoalVeloPos': (112, 'ii', 'rw', (None, None), ('rpm', 'deg'), (0.229, 360 / 4096)),
+            'PresentValues': (124, 'hhiiiiHB', 'r', (None, None), ('%', '', 'rpm', 'deg', 'rpm', 'deg', 'V', 'degC'), (100 / 885, None, 0.229, 360 / 4096, 0.229, 360 / 4096, 0.1, 1.0)),
+          })
+          print(ret[0], d[-1].modelname)
+        else:
+          d.pop(-1)
+
+      if d == []:
+        sys.exit()
+
+      d[0].dump();
+      input('Waiting for the Enter key to be pressed...')
+
+      print('>all axis off')
+      for _d in d:
+        _d.Torque_Enable = 0
+        _d.Profile_Velocity = 0
+        print(f' {_d.id} Torque_Enable={_d.Torque_Enable}')
+
+      print('>all axis pos monitor with SI value (sync read)')
+      for t in wait(5):
+        p = []
+        with dx2.sync_read([_d for _d in d]):
+          p = [_d.Present_Position.phys for _d in d]
+        print(f' {t:4.1f} present position=', *[f'{_p:6.1f}' for _p in p], end='\r')
+      else:
+        print()
+
+      print('>all axis on')
+      for _d in d:
+        _d.Operating_Mode = 3
+        _d.Torque_Enable = 1
+        _d.Profile_Velocity = 0
+        print(f' {_d.id} Torque_Enable={_d.Torque_Enable} Operating_Mode={_d.Operating_Mode}')
+
+      print('>1 axis pos set with SI value')
+      for i in range(36):
+        d[0].Goal_Position.phys = 10.0 * i
+        for _ in wait(0.5):
+          print(f'{d[0].Goal_Position.phys:6.1f} {d[0].Present_Position.phys:7.1f}', end='\r')
+      else:
+        print()
+
+      print('>1 axis velo+pos with SI value')
+      d[0].GoalVeloPos.phys = 20.0, 0.5
+      sleep(1)
+      d[0].GoalVeloPos.phys = 10.0, 280.0
+      sleep(1)
+      d[0].GoalVeloPos.phys = 60.0, 180.0
+      sleep(1)
+
+      print('>all axis pos set (sync write)')
+      with dx2.sync_write(d[0].Goal_Position.info):
+        for _d in d:
+          _d.Goal_Position = 0
+      sleep(1)
+
+      with dx2.sync_write(d[0].Goal_Position.info):
+        for _d in d:
+          _d.Goal_Position = 2048
+      sleep(1)
+
+      with dx2.sync_write(d[0].Goal_Position.info):
+        for _d in d:
+          _d.Goal_Position = 4095
+      sleep(1)
+
+      print('>all axis LED flash (sync write)')
+      for i in range(50):
+        with dx2.sync_write(d[0].LED.info):
+          for _d in d:
+            _d.LED ^= 1
+        sleep(0.01)
+
+      print('>all axis velo+pos set (sync write)')
+      for i, p in enumerate(range(0, 4095, 100)):
+        print(f'sync {i + 1}/41', end='\r')
+        with dx2.sync_write(d[0].GoalVeloPos.info):
+          for _d in d:
+            _d.GoalVeloPos = 45, p
+        for _ in wait(0.5):
+          with dx2.sync_read([_d for _d in d]):
+            print(*[f'{_d.Present_Position:5}' for _d in d], end='\r')
+      else:
+        print()
+
+      print('>all axis ramdom test(bulk write)')
+      for i in range(20):
+        print(f' {i + 1}/20', end='\r')
+        with dx2.bulk_write():
+          if len(d) >= 1: d[0].GoalVeloPos = random.randint(50, 300), random.randint(2048 - 512, 2048 + 512)
+          if len(d) >= 2: d[1].Goal_Position = random.randint(2048 - 512, 2048 + 512)
+          if len(d) >= 3: d[2].Goal_Position = random.randint(2048 - 512, 2048 + 512)
+          if len(d) >= 4: d[3].LED = random.randint(0, 1)
+          if len(d) >= 5: d[4].LED = random.randint(0, 1)
+          if len(d) >= 6: d[5].LED = random.randint(0, 1)
+        sleep(0.3)
+      else:
+        print()
+
       with dx2.sync_write(d[0].GoalVeloPos.info):
         for _d in d:
-          _d.GoalVeloPos = 45, p
-      for _ in wait(0.5):
-        with dx2.sync_read([_d for _d in d]):
-          print(*[f'{_d.Present_Position:5}' for _d in d], end='\r')
-    else:
-      print()
+          _d.GoalVeloPos = 0, 2047
+      sleep(0.5)
 
-    print('>all axis ramdom test(bulk write)')
-    for i in range(20):
-      print(f' {i + 1}/20', end='\r')
-      with dx2.bulk_write():
-        if len(d) >= 1: d[0].GoalVeloPos = random.randint(50, 300), random.randint(2047 - 512, 2047 + 512)
-        if len(d) >= 2: d[1].Goal_Position = random.randint(2047 - 512, 2047 + 512)
-        if len(d) >= 3: d[2].Goal_Position = random.randint(2047 - 512, 2047 + 512)
-        if len(d) >= 4: d[3].LED = random.randint(0, 1)
-        if len(d) >= 5: d[4].LED = random.randint(0, 1)
-        if len(d) >= 6: d[5].LED = random.randint(0, 1)
-      sleep(0.3)
-    else:
-      print()
-
-    with dx2.sync_write(d[0].GoalVeloPos.info):
-      for _d in d:
-        _d.GoalVeloPos = 0, 2047
-    sleep(0.5)
-
-    for _d in d:
-      _d.Torque_Enable = 0
-    print('fin.')
+    except KeyboardInterrupt:
+      pass
+    except:
+      print('--- Caught Exception ---')
+      traceback.print_exc()
+      print('------------------------')
+    finally:
+      if d != []:
+        sleep(0.3)
+        for _d in d:
+          _d.Torque_Enable = 0
+      print('fin.')

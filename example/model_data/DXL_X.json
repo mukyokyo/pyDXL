@@ -1,5 +1,5 @@
 {
-  "Xseries" : {
+  "Xseries": {
     "Model_Number": [0, "H", "r", [null, null], "", null],
     "Model_Information": [2, "I", "r", [null, null], "", null],
     "Firmware_Version": [6, "B", "r", [null, null], "", null],
@@ -10,7 +10,7 @@
     "Operating_Mode": [11, "B", "rw", [null, null], "", null],
     "Secondary_ID": [12, "B", "rw", [null, null], "", null],
     "Protocol_Type": [13, "B", "rw", [null, null], "", null],
-    "Homing_Offset": [20, "i", "rw", [-1044479, 1044479], "deg", "360 / 4095"],
+    "Homing_Offset": [20, "i", "rw", [-1044479, 1044479], "deg", "360 / 4096"],
     "Moving_Threshold": [24, "I", "rw", [0, 1023], "rpm", 0.229],
     "Temperature_Limit": [31, "B", "rw", [0, 100], "degC", 1.0],
     "Max_Voltage_Limit": [32, "H", "rw", [null, null], "V", 0.1],
@@ -19,11 +19,8 @@
     "Current_Limit": [38, "H", "rw", [null, null], "mA", 2.69],
     "Acceleration_Limit": [40, "i", "rw", [null, null], "", null],
     "Velocity_Limit": [44, "i", "rw", [null, null], "rpm", 0.229],
-    "Max_Position_Limit": [48, "I", "rw", [0, 4095], "deg", "360 / 4095"],
-    "Min_Position_Limit": [52, "I", "rw", [0, 4095], "deg", "360 / 4095"],
-    "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
-    "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
-    "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+    "Max_Position_Limit": [48, "I", "rw", [0, 4095], "deg", "360 / 4096"],
+    "Min_Position_Limit": [52, "I", "rw", [0, 4095], "deg", "360 / 4096"],
     "Startup_Configuration": [60, "B", "rw", [0, 3], "", null],
     "Shutdown": [63, "B", "rw", [null, null], "", null],
     "Torque_Enable": [64, "B", "rw", [0, 1], "", null],
@@ -45,246 +42,317 @@
     "Profile_Acceleration": [108, "i", "rw", [0, 32767], "rpm^2", 214.577],
     "Profile_Time": [108, "i", "rw", [0, 32767], "ms", 1.0],
     "Profile_Velocity": [112, "i", "rw", [0, 32767], "rpm", 0.229],
-    "Goal_Position": [116, "i", "rw", [null, null], "deg", "360 / 4095"],
+    "Goal_Position": [116, "i", "rw", [null, null], "deg", "360 / 4096"],
     "Realtime_Tick": [120, "H", "r", [0, 32767], "ms", 1],
     "Moving": [122, "B", "r", [0, 1], "", null],
     "Moving_Status": [123, "B", "r", [null, null], "", null],
     "Present_PWM": [124, "h", "r", [null, null], "%", "100 / 885"],
     "Present_Current": [126, "h", "r", [null, null], "mA", 2.69],
     "Present_Velocity": [128, "i", "r", [null, null], "rpm", 0.229],
-    "Present_Position": [132, "i", "r", [null, null], "deg", "360 / 4095"],
+    "Present_Position": [132, "i", "r", [null, null], "deg", "360 / 4096"],
     "Velocity_Trajectory": [136, "i", "r", [null, null], "rpm", 0.229],
-    "Position_Trajectory": [140, "i", "r", [null, null], "deg", "360 / 4095"],
+    "Position_Trajectory": [140, "i", "r", [null, null], "deg", "360 / 4096"],
     "Present_Input_Voltage": [144, "H", "r", [null, null], "V", 0.1],
     "Present_Temperature": [146, "B", "r", [null, null], "degC", 1.0],
     "Backup_Ready": [147, "B", "r", [0, 1], "", null],
-    "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
-    "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
-    "External_Port_Data_3": [156, "B", "rw", [null, null], "", null],
     "Indirect_Address_1_28": [168, "HHHHHHHHHHHHHHHHHHHHHHHHHHHH", "rw", [null, null], "", null],
     "Indirect_Data_1_28": [224, "BBBBBBBBBBBBBBBBBBBBBBBBBBBB", "rw", [null, null], "", null],
     "Indirect_Address_29_56": [578, "HHHHHHHHHHHHHHHHHHHHHHHHHHHH", "rw", [null, null], "", null],
     "Indirect_Data_29_56": [634, "BBBBBBBBBBBBBBBBBBBBBBBBBBBB", "rw", [null, null], "", null]
   },
 
-  "models":{
+  "models": {
     "0x001E": {"modelname": "MX-28[2.0]", "controltable": "Xseries",
-             "overrides": {
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
-             }},
+               "overrides": {
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
+              },
+               "remove": ["Current_Limit", "Goal_Current", "Startup_Configuration"]
+              },
     "0x0137": {"modelname": "MX-64[2.0]", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 3.36],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 3.36]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 3.36],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 3.36]
+              },
+               "remove": ["Startup_Configuration"]
+              },
     "0x0141": {"modelname": "MX-106[2.0]", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 3.36],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 3.36]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 3.36],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 3.36]
+              },
+               "remove": ["Startup_Configuration"]
+              },
     "0x04A6": {"modelname": "XL330-M077", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 1750], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-               "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
-               "Goal_Current": [102, "h", "rw", [-1750, 1750], "mA", 1.0],
-               "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 1750], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
+                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "Goal_Current": [102, "h", "rw", [-1750, 1750], "mA", 1.0],
+                 "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
+              }},
     "0x04B0": {"modelname": "XL330-M288", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 1750], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-               "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
-               "Goal_Current": [102, "h", "rw", [-1750, 1750], "mA", 1.0],
-               "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 1750], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
+                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "Goal_Current": [102, "h", "rw", [-1750, 1750], "mA", 1.0],
+                 "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
+              },
+               "remove": ["Indirect_Address_29_56", "Indirect_Data_29_56"]
+              },
     "0x04CE": {"modelname": "XC330-M181", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2352], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-               "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
-               "Goal_Current": [102, "h", "rw", [-2352, 2352], "mA", 1.0],
-               "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2352], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
+                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "Goal_Current": [102, "h", "rw", [-2352, 2352], "mA", 1.0],
+                 "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
+              },
+               "remove": ["Indirect_Address_29_56", "Indirect_Data_29_56"]
+              },
     "0x04D8": {"modelname": "XC330-M288", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-               "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
-               "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
-               "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
+                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
+                 "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
+              },
+               "remove": ["Indirect_Address_29_56", "Indirect_Data_29_56"]
+              },
     "0x04BA": {"modelname": "XC330-T181", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2352], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-               "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
-               "Goal_Current": [102, "h", "rw", [-2352, 2352], "mA", 1.0],
-               "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2352], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
+                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "Goal_Current": [102, "h", "rw", [-2352, 2352], "mA", 1.0],
+                 "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
+              },
+               "remove": ["Indirect_Address_29_56", "Indirect_Data_29_56"]
+              },
     "0x04C4": {"modelname": "XC330-T288", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-               "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
-               "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
-               "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
+                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
+                 "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
+              },
+               "remove": ["Indirect_Address_29_56", "Indirect_Data_29_56"]
+              },
     "0x0424": {"modelname": "XL430-W250", "controltable": "Xseries",
-             "overrides": {
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
-             }},
+               "overrides": {
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
+              },
+               "remove": ["Current_Limit", "Goal_Current", "Present_Current"]
+              },
     "0x0442": {"modelname": "2XL430-W250", "controltable": "Xseries",
-             "overrides": {
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
-             }},
+               "overrides": {
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
+              },
+               "remove": ["Current_Limit", "Goal_Current", "Present_Current"]
+              },
     "0x0488": {"modelname": "2XC430-W250", "controltable": "Xseries",
-             "overrides": {
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
-             }},
+               "overrides": {
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
+              },
+               "remove": ["Current_Limit", "Goal_Current", "Present_Current"]
+              },
     "0x042E": {"modelname": "XC430-W150", "controltable": "Xseries",
-             "overrides": {
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
-             }},
+               "overrides": {
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
+              },
+               "remove": ["Current_Limit", "Goal_Current", "Present_Current"]
+              },
     "0x0438": {"modelname": "XC430-W240", "controltable": "Xseries",
-             "overrides": {
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
-             }},
+               "overrides": {
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Present_Load": [126, "h", "r", [null, null], "%", 0.1]
+              }},
     "0x06A5": {"modelname": "XM335-T323", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
-               "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
-               "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
-               "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 910], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 2047], "rpm", 0.229],
+                 "PWM Slope": [62, "B", "rw", [1, 255], "mV/ms", 3.955],
+                 "Goal_Current": [102, "h", "rw", [-910, 910], "mA", 1.0],
+                 "Present_Current": [126, "h", "r", [null, null], "mA", 1.0]
+              },
+               "remove": ["Indirect_Address_29_56", "Indirect_Data_29_56"]
+              },
     "0x0406": {"modelname": "XM430-W210", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 1193], "mA", 1.0],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-1193, 1193], "mA", 1.0]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 1193], "mA", 1.0],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-1193, 1193], "mA", 1.0]
+              }},
     "0x03F2": {"modelname": "XH430-W210", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
+              }},
     "0x03F3": {"modelname": "XD430-T210", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
+              }},
     "0x041A": {"modelname": "XH430-V210", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 689], "mA", 1.34],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-689, 689], "mA", 1.34]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 689], "mA", 1.34],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-689, 689], "mA", 1.34]
+              }},
     "0x03FC": {"modelname": "XM430-W350", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 1193], "mA", 1.34],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-1193, 1193], "mA", 1.34]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 1193], "mA", 1.34],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-1193, 1193], "mA", 1.34]
+              }},
     "0x03E8": {"modelname": "XH430-W350", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
+              }},
     "0x03E9": {"modelname": "XD430-T350", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
+              }},
     "0x0410": {"modelname": "XH430-V350", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 689], "mA", 1.34],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-689, 689], "mA", 1.34]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 689], "mA", 1.34],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-689, 689], "mA", 1.34]
+              }},
     "0x0500": {"modelname": "XW430-T200", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
+              }},
     "0x04F6": {"modelname": "XW430-T333", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 648], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-648, 648], "mA", 2.69]
+              }},
     "0x046A": {"modelname": "XM540-W150", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x0456": {"modelname": "XH540-W150", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x0457": {"modelname": "XD540-T150", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x047E": {"modelname": "XH540-V150", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 1188], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-1188, 1188], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 1188], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-1188, 1188], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x0460": {"modelname": "XM540-W270", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x044C": {"modelname": "XH540-W270", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x044D": {"modelname": "XD540-T270", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x0474": {"modelname": "XH540-V270", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 1188], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-1188, 1188], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 1188], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-1188, 1188], "mA", 2.69],
+                 "External_Port_Mode_1": [56, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_2": [57, "B", "rw", [0, 3], "", null],
+                 "External_Port_Mode_3": [58, "B", "rw", [0, 3], "", null],
+                 "External_Port_Data_1": [152, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_2": [154, "B", "rw", [null, null], "", null],
+                 "External_Port_Data_3": [156, "B", "rw", [null, null], "", null]
+              }},
     "0x049C": {"modelname": "XW540-T140", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }},
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
+              }},
     "0x0492": {"modelname": "XW540-T260", "controltable": "Xseries",
-             "overrides": {
-               "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
-               "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
-               "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
-             }}
+               "overrides": {
+                 "Current_Limit": [38, "H", "rw", [0, 2047], "mA", 2.69],
+                 "Velocity_Limit": [44, "i", "rw", [0, 1023], "rpm", 0.229],
+                 "Goal_Current": [102, "h", "rw", [-2047, 2047], "mA", 2.69]
+              }}
   }
 }
