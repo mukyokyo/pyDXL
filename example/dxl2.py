@@ -9,6 +9,7 @@
 from pyDXL import DXLProtocolV2
 import warnings, struct, contextlib, json, os
 
+
 class DXL_master(DXLProtocolV2):
   def __init__(self, *args, **kwargs):
     self._dx = super().__init__(*args, **kwargs)
@@ -100,15 +101,15 @@ class dxl:
     self._model_index = self._build_index('model_data/')
     self._dx = dx_instance
     self._id = dxl_id
-    model_num = self._dx.Read16(dxl_id, 0)
-    if model_num is not None:
-      json_path = self._model_index['models'].get(f'0x{model_num:04X}')
+    self._modelno = self._dx.Read16(dxl_id, 0)
+    if self._modelno is not None:
+      json_path = self._model_index['models'].get(f'0x{self._modelno:04X}')
       if not json_path:
         self._modelname = None
         self._items = {}
-        raise Exception(f'Model(0x{model_num:04X}) is not supported.')
+        warnings.warn(f'Model(0x{self._modelno:04X}) is not supported.', UserWarning)
       else:
-        model_info = self._model_index.get('models').get(f'0x{model_num:04X}')
+        model_info = self._model_index.get('models').get(f'0x{self._modelno:04X}')
         self._modelname = model_info.get('modelname')
         self._items = self._model_index.get(model_info.get('controltable')).copy()
         self._items.update(model_info.get('overrides', {}))
@@ -124,6 +125,9 @@ class dxl:
   def __exit__(self, ex_type, ex_value, trace):
     pass
 
+  def __dir__(self):
+    return dir(super()) + list(self._items)
+
   @property
   def id(self):
     return self._id
@@ -131,6 +135,10 @@ class dxl:
   @property
   def modelname(self):
     return self._modelname
+
+  @property
+  def modelno(self):
+    return self._modelno
 
   @property
   def items(self):
@@ -323,8 +331,7 @@ if __name__ == '__main__':
     while end_time > time():
       yield end_time - time()
 
-  with DXL_master('\\\\.\\COM20', 2000000, timeoutoffset=0.5, protocoltype=2) as dx2:
-
+  with DXL_master('\\\\.\\COM20', 2000000, timeoutoffset=0.5) as dx2:
     try:
       '''
       rets = dx2.Ping2()
@@ -388,7 +395,7 @@ if __name__ == '__main__':
       if d == []:
         sys.exit()
 
-      d[0].dump();
+      d[0].dump()
       input('Waiting for the Enter key to be pressed...')
 
       print('>all axis off')
